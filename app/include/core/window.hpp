@@ -10,6 +10,8 @@ class Window {
         void SwapBuffers();
         void GetDimensions(int& width, int& height, int& aspect);
         void GetEvents();
+        void HandleEvents();
+        bool should_close = false;
     private:
        SDL_Window* window_;
        SDL_GLContext context_;

@@ -1,5 +1,6 @@
 #pragma once
 #include "core/window.hpp"
+#include "scene/scene_manager.hpp"
 
 class App {
     public:
@@ -10,5 +11,6 @@ class App {
     private:
         bool isRunning_;
         Window window_;
+        SceneManager sceneManager_;
 };
 

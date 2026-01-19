@@ -1,4 +1,5 @@
 #include "core/app.hpp"
+#include "core/window.hpp"
 #include <iostream>
 
 App::App() : isRunning_(false) {}
@@ -6,15 +7,20 @@ App::App() : isRunning_(false) {}
 App::~App() {     }
 
 void App::Run() {
-    isRunning_ = true;
-    // while (!App::ShouldClose()) {
-        
+    Scene scene = sceneManager_.LoadScene("Default");
 
-    //initialize window
-    //handle events
-    //load scene
-    //render
-    // }
+    isRunning_ = true;
+    while (!window_.should_close) {        
+        window_.GetEvents();
+        window_.HandleEvents();
+        
+        //Call Systems
+        //Camera Controller System
+        //Physics System
+        //Rendering System
+
+        window_.SwapBuffers();
+    }
 }
 
 

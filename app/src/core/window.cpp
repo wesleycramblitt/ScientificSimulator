@@ -22,7 +22,7 @@ Window::Window() {
     window_ = SDL_CreateWindow(
         "Scientific Simulator",
         1280, 720,
-        SDL_WINDOW_OPENGL | SDL_EVENT_WINDOW_SHOWN
+        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
     );
     
     if (!window_) {
@@ -55,34 +55,37 @@ Window::Window() {
     glCullFace(GL_BACK);
 
 }
-// Window::HandleEvents() {
-    //  if (e.type == SDL_EVENT_QUIT) running = false;
-    //   if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) running = false;
-    //
-    //   if (e.type == SDL_EVENT_MOUSE_MOTION) {
-    //     //SDL_Log("mouse rel: %f %f", (double)e.motion.xrel, (double)e.motion.yrel);
-    //     float dx = (float)e.motion.xrel;
-    //     float dy = (float)e.motion.yrel;
-    //     yaw   += dx * mousesens;
-    //     pitch -= dy * mousesens;
-    //     if (pitch > 89.f) pitch = 89.f;
-    //     if (pitch < -89.f) pitch = -89.f;
-    //   }
-    //
-    //   if (e.type == SDL_EVENT_WINDOW_RESIZED) {
-    //     glViewport(0, 0, e.window.data1, e.window.data2);
-    //   }
-    // }
-    //
-// }
+ void Window::HandleEvents() {
+     for (size_t i{}; i < *event_state_.num_events_; i++) {
+         SDL_Event e = event_state_.events_[i];
+          if (e.type == SDL_EVENT_QUIT) should_close = true;
+          if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE) should_close = true;
+
+          // if (e.type == SDL_EVENT_MOUSE_MOTION) {
+          //   //SDL_Log("mouse rel: %f %f", (double)e.motion.xrel, (double)e.motion.yrel);
+          //   float dx = (float)e.motion.xrel;
+          //   float dy = (float)e.motion.yrel;
+          //   yaw   += dx * mousesens;
+          //   pitch -= dy * mousesens;
+          //   if (pitch > 89.f) pitch = 89.f;
+          //   if (pitch < -89.f) pitch = -89.f;
+          // }
+
+          if (e.type == SDL_EVENT_WINDOW_RESIZED) {
+            glViewport(0, 0, e.window.data1, e.window.data2);
+          }
+     }
+    }
+
 
 void Window::GetEvents() {
+    SDL_PumpEvents();
+
     SDL_Event events[100]; //max of 100 events per frame
-    int num_events = SDL_PeepEvents(events, 100, SDL_PEEKEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST);
-    
+    int num_events = SDL_PeepEvents(events, 100, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST);
     const bool* keys = SDL_GetKeyboardState(nullptr);
 
-    event_state_.SetState(events, keys); 
+    event_state_.SetState(events, &num_events, keys); 
 }
 
 Window::~Window() {
