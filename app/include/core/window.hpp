@@ -12,8 +12,7 @@ class Window {
         void GetEvents();
         void HandleEvents();
         bool should_close = false;
-    private:
-       SDL_Window* window_;
-       SDL_GLContext context_;
-       EventState event_state_;
+       SDL_Window* window;
+       SDL_GLContext context;
+       EventState event_state;
 };

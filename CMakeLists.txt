@@ -34,7 +34,6 @@ add_executable(ScientificSimulator
   app/src/core/window.cpp
   app/src/core/event_state.cpp
   app/src/entities/registry.cpp
-  app/src/entities/storage.cpp
   app/src/scene/scene_manager.cpp
   app/src/systems/camera_controller_system.cpp
   app/src/systems/render_system.cpp

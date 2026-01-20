@@ -19,21 +19,21 @@ Window::Window() {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     
     // Create window
-    window_ = SDL_CreateWindow(
+    window = SDL_CreateWindow(
         "Scientific Simulator",
         1280, 720,
         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
     );
     
-    if (!window_) {
+    if (!window) {
         // Handle error
         std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         return;
     }
     
     // Create OpenGL context
-    context_ = SDL_GL_CreateContext(window_);
-    if (!context_) {
+    context = SDL_GL_CreateContext(window);
+    if (!context) {
         // Handle error
         std::cerr << "OpenGL context could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         return;
@@ -43,8 +43,8 @@ Window::Window() {
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
         // Handle error
         std::cerr << "Failed to initialize opengl loader!" << std::endl;
-        SDL_GL_DestroyContext(context_);
-        SDL_DestroyWindow(window_);
+        SDL_GL_DestroyContext(context);
+        SDL_DestroyWindow(window);
         SDL_Quit();
         return;
     }
@@ -56,8 +56,8 @@ Window::Window() {
 
 }
  void Window::HandleEvents() {
-     for (size_t i{}; i < *event_state_.num_events_; i++) {
-         SDL_Event e = event_state_.events_[i];
+     for (size_t i{}; i < *event_state.num_events_; i++) {
+         SDL_Event e = event_state.events_[i];
           if (e.type == SDL_EVENT_QUIT) should_close = true;
           if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE) should_close = true;
 
@@ -85,12 +85,12 @@ void Window::GetEvents() {
     int num_events = SDL_PeepEvents(events, 100, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST);
     const bool* keys = SDL_GetKeyboardState(nullptr);
 
-    event_state_.SetState(events, &num_events, keys); 
+    event_state.SetState(events, &num_events, keys); 
 }
 
 Window::~Window() {
-  SDL_GL_DestroyContext(context_);
-  SDL_DestroyWindow(window_);
+  SDL_GL_DestroyContext(context);
+  SDL_DestroyWindow(window);
   SDL_Quit();
 
 }
@@ -102,10 +102,10 @@ void Window::Die(const char* msg) {
 }
 
 void Window::SwapBuffers() {
-    SDL_GL_SwapWindow(window_);
+    SDL_GL_SwapWindow(window);
 } 
 
 void Window::GetDimensions(int& _width, int& _height, int& _aspect) {
-    SDL_GetWindowSize(window_, &_width, &_height);
+    SDL_GetWindowSize(window, &_width, &_height);
     _aspect = (_height > 0) ? (float)_width / (float)_height : 1.0f;
 }

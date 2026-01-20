@@ -1,6 +1,10 @@
 #include "systems/camera_controller_system.hpp"
 
-void CameraControllerSystem::Update(Registry& registry, float dt) {
+CameraControllerSystem::CameraControllerSystem() {}
+
+CameraControllerSystem::~CameraControllerSystem() {}
+
+void CameraControllerSystem::Update(Registry& registry, EventState& eventState, float dt) {
  //    vec3 campos{0.f, 2.f, 6.f};
  //    float yaw = -90.f;
  //    float pitch = -10.f;

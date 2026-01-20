@@ -1,12 +1,17 @@
 #pragma once
 #include <string>
-#include "scene/scene.hpp"
+#include "entities/registry.hpp"
+
+struct Scene {
+    std::string name;
+    Registry registry;
+};
 
 class SceneManager {
     public:
-        SceneManager();
+         SceneManager();
         ~SceneManager();
 
-        Scene LoadScene(std::string name);
+        Scene LoadScene(const std::string& name);
 
 };

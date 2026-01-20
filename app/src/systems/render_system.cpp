@@ -1,5 +1,14 @@
 #include "systems/render_system.hpp"
 
-void RenderSystem::Update(Registry& registry, float dt) {  }
+RenderSystem::RenderSystem() { }
+RenderSystem::~RenderSystem() { } 
+
+void RenderSystem::Update(Registry& registry, EventState& eventState, float dt) 
+{ 
+
+
+
+}
+
 
 
