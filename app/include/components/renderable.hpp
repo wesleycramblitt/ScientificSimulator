@@ -1,7 +1,9 @@
-#include "graphics/material.hpp"
-#include "graphics/mesh.hpp"
+#pragma once
+#include <cstdint>
+
 
 struct Renderable {
-    Material material;
-    Mesh     mesh;
+    //TODO: multiple meshes and materials grouped?
+    //std::uint32_t material;
+    std::uint32_t    mesh;
 };

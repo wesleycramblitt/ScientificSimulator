@@ -6,11 +6,11 @@ class Window {
     public:
         Window();
         ~Window();
-        void Die(const char * msg);
-        void SwapBuffers();
-        void GetDimensions(int& width, int& height, int& aspect);
-        void GetEvents();
-        void HandleEvents();
+        void die(const char * msg);
+        void swapBuffers();
+        void getDimensions(int& width, int& height, float& aspect) const;
+        void getEvents();
+        void handleEvents();
         bool should_close = false;
        SDL_Window* window;
        SDL_GLContext context;

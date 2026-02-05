@@ -1,10 +1,11 @@
 #include "systems/camera_controller_system.hpp"
+#include "core/window.hpp"
 
 CameraControllerSystem::CameraControllerSystem() {}
 
 CameraControllerSystem::~CameraControllerSystem() {}
 
-void CameraControllerSystem::Update(Registry& registry, EventState& eventState, float dt) {
+void CameraControllerSystem::Update(Registry& registry, Window& window, float dt) {
  //    vec3 campos{0.f, 2.f, 6.f};
  //    float yaw = -90.f;
  //    float pitch = -10.f;
@@ -37,5 +38,15 @@ void CameraControllerSystem::Update(Registry& registry, EventState& eventState, 
  //    if (keys[SDL_SCANCODE_Q]) camPos = camPos - up    * (s * dt);
  //    if (keys[SDL_SCANCODE_E]) camPos = camPos + up    * (s * dt);
  //
+
+          // if (e.type == SDL_EVENT_MOUSE_MOTION) {
+          //   //SDL_Log("mouse rel: %f %f", (double)e.motion.xrel, (double)e.motion.yrel);
+          //   float dx = (float)e.motion.xrel;
+          //   float dy = (float)e.motion.yrel;
+          //   yaw   += dx * mousesens;
+          //   pitch -= dy * mousesens;
+          //   if (pitch > 89.f) pitch = 89.f;
+          //   if (pitch < -89.f) pitch = -89.f;
+          // }
 
 }

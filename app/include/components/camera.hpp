@@ -1,10 +1,10 @@
 #pragma once
 #include <cstdint>
 
-enum class ProjectionType : uint8_t {
+enum ProjectionType : uint8_t {
     Perspective,
     Orthographic
-}
+};
 
 struct Camera {
     ProjectionType projection = ProjectionType::Perspective;

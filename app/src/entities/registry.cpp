@@ -1,6 +1,4 @@
-
 #include "entities/registry.hpp"
-
 
 Entity Registry::create() {
     Entity::id_type id;
@@ -9,45 +7,58 @@ Entity Registry::create() {
         id = free_ids_.back();
         free_ids_.pop_back();
         alive_[id] = 1u;
-        // generation already incremented in destroy()
+        // gen_[id] already holds current generation for this id
     } else {
         id = static_cast<Entity::id_type>(gen_.size());
-        gen_.push_back(0u);
+        gen_.push_back(0);
         alive_.push_back(1u);
     }
 
-    return Entity{ id, gen_[id] };
+    return Entity{id, gen_[id]};
+}
+
+bool Registry::valid(Entity e) const noexcept {
+    if (e.id == std::numeric_limits<Entity::id_type>::max()) return false;
+    if (e.id >= gen_.size()) return false;
+    if (e.id >= alive_.size()) return false;
+    if (!alive_[e.id]) return false;
+    return gen_[e.id] == e.gen;
 }
 
 void Registry::destroy(Entity e) {
     if (!valid(e)) return;
 
-    const auto id = e.id;
+    // Mark dead and bump generation so stale handles become invalid
+    alive_[e.id] = 0u;
+    ++gen_[e.id];
 
-    // Remove from all pools
+    // Remove all components for this entity id from every pool.
+    // (This is why we keep IPool type erasure.)
     for (auto& [_, pool] : pools_) {
-        pool->remove_entity(id);
+        pool->remove_entity(e.id);
     }
 
-    // Invalidate entity by bumping generation, mark dead, recycle id
-    alive_[id] = 0u;
-    gen_[id] += 1u;
-    free_ids_.push_back(id);
-}
-
-bool Registry::valid(Entity e) const noexcept {
-    if (e.id >= gen_.size()) return false;
-    if (!alive_[e.id]) return false;
-    return gen_[e.id] == e.gen;
+    // Recycle id
+    free_ids_.push_back(e.id);
 }
 
 void Registry::clear() {
-    // Clear pools
-    pools_.clear();
+    // Destroy all entities (without relying on external handles).
+    // Increment gen for all alive entities and clear components.
+    for (Entity::id_type id = 0; id < alive_.size(); ++id) {
+        if (alive_[id]) {
+            alive_[id] = 0u;
+            ++gen_[id];
+            free_ids_.push_back(id);
+        }
+    }
 
-    // Clear entities
-    gen_.clear();
-    alive_.clear();
-    free_ids_.clear();
+    for (auto& [_, pool] : pools_) {
+        // brute-force clear by removing every entity id present in pool's dense list
+        // (copy ids because remove mutates dense list)
+        const auto ids = pool->dense_entities();
+        for (auto id : ids) {
+            pool->remove_entity(id);
+        }
+    }
 }
-

@@ -1,6 +1,6 @@
 #pragma once
 #include "entities/registry.hpp"
-#include "core/event_state.hpp"
+#include "core/window.hpp"
 #include "components/camera_controller.hpp"
 
 class CameraControllerSystem {
@@ -8,9 +8,6 @@ class CameraControllerSystem {
     public:
         CameraControllerSystem();
         ~CameraControllerSystem();
-        void Update(Registry& registry,EventState& eventState, float dt);
-
-    private:
-
+        void Update(Registry& registry,Window& window, float dt);
 
 };

@@ -11,6 +11,8 @@
 #include <stdexcept>
 #include <algorithm>
 #include <functional>
+#include <type_traits>
+#include <iterator>
 
 struct Entity {
     using id_type = std::uint32_t;
@@ -102,7 +104,7 @@ private:
         T& emplace(Entity::id_type id, Args&&... args) {
             ensure_sparse(id);
             if (sparse_[id] != 0u) {
-                // Already exists: overwrite in-place (common ECS behavior).
+                // Already exists: overwrite in-place.
                 auto& existing = dense_data_[static_cast<std::size_t>(sparse_[id] - 1u)];
                 existing = T(std::forward<Args>(args)...);
                 return existing;
@@ -120,7 +122,7 @@ private:
             const auto sparse_val = sparse_[id];
             if (sparse_val == 0u) return;
 
-            const std::uint32_t idx = sparse_val - 1u;
+            const std::uint32_t idx  = sparse_val - 1u;
             const std::uint32_t last = static_cast<std::uint32_t>(dense_data_.size() - 1u);
 
             if (idx != last) {
@@ -140,9 +142,7 @@ private:
             return id < sparse_.size() && sparse_[id] != 0u;
         }
 
-        std::size_t size() const noexcept override {
-            return dense_data_.size();
-        }
+        std::size_t size() const noexcept override { return dense_data_.size(); }
 
         const std::vector<Entity::id_type>& dense_entities() const noexcept override {
             return dense_entities_;
@@ -184,47 +184,136 @@ public:
     template <class... Cs>
     class View {
     public:
+        static_assert(sizeof...(Cs) > 0, "Registry::View requires at least one component type.");
+
         using registry_type = std::conditional_t<
             (std::is_const_v<Cs> || ...),
             const Registry,
             Registry
         >;
 
-        explicit View(registry_type& r) : reg_(r) {}
+        explicit View(registry_type& r)
+            : reg_(r), driving_(smallest_pool()) {}
 
+        // ---- range-for support ----
+        class iterator {
+        public:
+            using iterator_category = std::forward_iterator_tag;
+            using value_type        = Entity;
+            using difference_type   = std::ptrdiff_t;
+            using pointer           = const Entity*;
+            using reference         = Entity;
+
+            iterator() = default;
+
+            iterator(registry_type* reg,
+                     const IPool* driving,
+                     const std::vector<Entity::id_type>* ids,
+                     std::size_t i)
+                : reg_(reg), driving_(driving), ids_(ids), i_(i) {
+                satisfy();
+            }
+
+            reference operator*() const {
+                const auto id = (*ids_)[i_];
+                return Entity{id, (*reg_).gen_[id]};
+            }
+
+            iterator& operator++() {
+                ++i_;
+                satisfy();
+                return *this;
+            }
+
+            iterator operator++(int) {
+                iterator tmp = *this;
+                ++(*this);
+                return tmp;
+            }
+
+            friend bool operator==(const iterator& a, const iterator& b) {
+                return a.ids_ == b.ids_ && a.i_ == b.i_;
+            }
+
+            friend bool operator!=(const iterator& a, const iterator& b) {
+                return !(a == b);
+            }
+
+        private:
+            registry_type* reg_{nullptr};
+            const IPool* driving_{nullptr};
+            const std::vector<Entity::id_type>* ids_{nullptr};
+            std::size_t i_{0};
+
+            void satisfy() {
+                if (!reg_ || !driving_ || !ids_) return;
+
+                while (i_ < ids_->size()) {
+                    const auto id = (*ids_)[i_];
+                    // generation-safe handle
+                    Entity e{id, (*reg_).gen_[id]};
+
+                    if (!(*reg_).alive_.empty() && id < (*reg_).alive_.size()) {
+                        if (!(*reg_).alive_[id]) { ++i_; continue; }
+                    } else {
+                        ++i_;
+                        continue;
+                    }
+
+                    if (!(*reg_).valid(e)) { ++i_; continue; }
+
+                    if (!( (*reg_).template has<std::remove_const_t<Cs>>(e) && ... )) {
+                        ++i_;
+                        continue;
+                    }
+
+                    return; // found valid entity
+                }
+            }
+        };
+
+        iterator begin() {
+            if (!driving_) return end();
+            const auto& ids = driving_->dense_entities();
+            return iterator(&reg_, driving_, &ids, 0);
+        }
+
+        iterator end() {
+            if (!driving_) return iterator(&reg_, nullptr, nullptr, 0);
+            const auto& ids = driving_->dense_entities();
+            return iterator(&reg_, driving_, &ids, ids.size());
+        }
+
+        // const overloads so `for (auto e : registry.view<...>())` works on const registry too
+        iterator begin() const {
+            if (!driving_) return end();
+            const auto& ids = driving_->dense_entities();
+            return iterator(const_cast<registry_type*>(&reg_), driving_, &ids, 0);
+        }
+
+        iterator end() const {
+            if (!driving_) return iterator(const_cast<registry_type*>(&reg_), nullptr, nullptr, 0);
+            const auto& ids = driving_->dense_entities();
+            return iterator(const_cast<registry_type*>(&reg_), driving_, &ids, ids.size());
+        }
+
+        // ---- callback iteration (const-correct components) ----
         template <class Fn>
         void each(Fn&& fn) {
-            // Choose smallest pool among Cs...
-            auto* driving = smallest_pool();
-            if (!driving) return;
-
-            const auto& dense_ids = driving->dense_entities();
-
-            for (auto id : dense_ids) {
-                Entity e{ id, reg_.gen_[id] };
-                if (!reg_.alive_[id]) continue;
-                if (!reg_.valid(e)) continue; // generation safety
-
-                if (!(reg_.template has<std::remove_const_t<Cs>>(e) && ...)) continue;
-
-                // Fetch references in component order Cs...
-                std::invoke(
-                    std::forward<Fn>(fn),
-                    e,
-                    reg_.template get<std::remove_const_t<Cs>>(e)...
-                );
+            for (Entity e : *this) {
+                std::invoke(std::forward<Fn>(fn), e, fetch<Cs>(e)...);
             }
         }
 
     private:
         registry_type& reg_;
+        const IPool* driving_{nullptr};
 
         const IPool* smallest_pool() const {
             const IPool* best = nullptr;
             std::size_t best_size = std::numeric_limits<std::size_t>::max();
 
-            // If any pool missing, view is empty
-            auto check = [&](auto* p) {
+            auto check = [&](auto* p) -> bool {
                 if (!p) return false;
                 const auto s = p->size();
                 if (s < best_size) {
@@ -234,10 +323,18 @@ public:
                 return true;
             };
 
-            // Fold over component types
-            bool ok = (check(reg_.template pool_ptr<std::remove_const_t<Cs>>()) && ...);
-            if (!ok) return nullptr;
-            return best;
+            const bool ok = (check(reg_.template pool_ptr<std::remove_const_t<Cs>>()) && ...);
+            return ok ? best : nullptr;
+        }
+
+        template <class C>
+        decltype(auto) fetch(Entity e) {
+            using Base = std::remove_const_t<C>;
+            if constexpr (std::is_const_v<registry_type>) {
+                return static_cast<const Registry&>(reg_).template get<Base>(e); // const Base&
+            } else {
+                return reg_.template get<Base>(e); // Base&
+            }
         }
     };
 };
@@ -245,21 +342,24 @@ public:
 // ====================== Template implementations ======================
 
 template <class T>
-inline typename Registry::template Pool<std::remove_const_t<T>>* Registry::pool_ptr() noexcept {
+inline typename Registry::template Pool<std::remove_const_t<T>>*
+Registry::pool_ptr() noexcept {
     auto it = pools_.find(std::type_index(typeid(std::remove_const_t<T>)));
     if (it == pools_.end()) return nullptr;
     return static_cast<Pool<std::remove_const_t<T>>*>(it->second.get());
 }
 
 template <class T>
-inline const typename Registry::template Pool<std::remove_const_t<T>>* Registry::pool_ptr() const noexcept {
+inline const typename Registry::template Pool<std::remove_const_t<T>>*
+Registry::pool_ptr() const noexcept {
     auto it = pools_.find(std::type_index(typeid(std::remove_const_t<T>)));
     if (it == pools_.end()) return nullptr;
     return static_cast<const Pool<std::remove_const_t<T>>*>(it->second.get());
 }
 
 template <class T>
-inline typename Registry::template Pool<std::remove_const_t<T>>& Registry::ensure_pool() {
+inline typename Registry::template Pool<std::remove_const_t<T>>&
+Registry::ensure_pool() {
     using U = std::remove_const_t<T>;
     auto key = std::type_index(typeid(U));
     auto it = pools_.find(key);
@@ -335,4 +435,3 @@ template <class... Cs>
 inline typename Registry::template View<const Cs...> Registry::view() const {
     return View<const Cs...>(*this);
 }
-

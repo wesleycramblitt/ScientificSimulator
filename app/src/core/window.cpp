@@ -55,21 +55,11 @@ Window::Window() {
     glCullFace(GL_BACK);
 
 }
- void Window::HandleEvents() {
+ void Window::handleEvents() {
      for (size_t i{}; i < *event_state.num_events_; i++) {
          SDL_Event e = event_state.events_[i];
           if (e.type == SDL_EVENT_QUIT) should_close = true;
           if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE) should_close = true;
-
-          // if (e.type == SDL_EVENT_MOUSE_MOTION) {
-          //   //SDL_Log("mouse rel: %f %f", (double)e.motion.xrel, (double)e.motion.yrel);
-          //   float dx = (float)e.motion.xrel;
-          //   float dy = (float)e.motion.yrel;
-          //   yaw   += dx * mousesens;
-          //   pitch -= dy * mousesens;
-          //   if (pitch > 89.f) pitch = 89.f;
-          //   if (pitch < -89.f) pitch = -89.f;
-          // }
 
           if (e.type == SDL_EVENT_WINDOW_RESIZED) {
             glViewport(0, 0, e.window.data1, e.window.data2);
@@ -78,7 +68,7 @@ Window::Window() {
     }
 
 
-void Window::GetEvents() {
+void Window::getEvents() {
     SDL_PumpEvents();
 
     SDL_Event events[100]; //max of 100 events per frame
@@ -95,17 +85,17 @@ Window::~Window() {
 
 }
 
-void Window::Die(const char* msg) {
+void Window::die(const char* msg) {
   const char* err = SDL_GetError();
   SDL_Log("FATAL: %s | SDL error: %s", msg, (err && *err) ? err : "(none)");
   std::exit(1);
 }
 
-void Window::SwapBuffers() {
+void Window::swapBuffers() {
     SDL_GL_SwapWindow(window);
 } 
 
-void Window::GetDimensions(int& _width, int& _height, int& _aspect) {
+void Window::getDimensions(int& _width, int& _height, float& _aspect) const{
     SDL_GetWindowSize(window, &_width, &_height);
     _aspect = (_height > 0) ? (float)_width / (float)_height : 1.0f;
 }

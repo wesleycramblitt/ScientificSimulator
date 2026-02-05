@@ -12,6 +12,6 @@ class SceneManager {
          SceneManager();
         ~SceneManager();
 
-        Scene LoadScene(const std::string& name);
+        Scene loadScene(const std::string& name);
 
 };

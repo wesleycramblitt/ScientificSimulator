@@ -3,6 +3,6 @@
 
 struct Grid {
     float spacing;
-    int lineCount;
     Vec3 color;
+    Vec3 axisColor;
 };

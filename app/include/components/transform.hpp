@@ -4,5 +4,5 @@
 struct Transform {
     Vec3 position;
     Quat rotation;
-    Vec3 scale(1,1,1);
+    Vec3 scale{ 1,1,1};
 };

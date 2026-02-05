@@ -8,23 +8,22 @@ App::~App() {     }
 
 void App::Run() {
     const std::string sceneName = "Default";
-    Scene scene = sceneManager_.LoadScene(sceneName);
+    Scene scene = sceneManager_.loadScene(sceneName);
 
     isRunning_ = true;
     while (!window_.should_close) {        
-        window_.GetEvents();
-        window_.HandleEvents();
+        window_.getEvents();
+        window_.handleEvents();
         
-        //Update EventState pointer in registry
 
         //Call Systems
         //Camera Controller System
-        cameraControllerSystem_.Update(scene.registry, window_.event_state,1); 
+        //cameraControllerSystem_.Update(scene.registry, window_,1); 
         //Physics System
         //Rendering System
-        renderSystem_.Update(scene.registry, window_.event_state, 1);
+        renderSystem_.update(scene.registry, window_, 1);
 
-        window_.SwapBuffers();
+        window_.swapBuffers();
     }
 }
 

@@ -29,16 +29,16 @@ endif()
 find_package(OpenGL REQUIRED)
 
 add_executable(ScientificSimulator
-  app/main.cpp
-  app/src/core/app.cpp
-  app/src/core/window.cpp
-  app/src/core/event_state.cpp
-  app/src/entities/registry.cpp
-  app/src/scene/scene_manager.cpp
-  app/src/systems/camera_controller_system.cpp
-  app/src/systems/render_system.cpp
+  app/main.cpp 
   external/glad/src/gl.c
 )
+
+add_subdirectory(app/src/components)
+add_subdirectory(app/src/core)
+add_subdirectory(app/src/entities)
+add_subdirectory(app/src/graphics)
+add_subdirectory(app/src/scene)
+add_subdirectory(app/src/systems)
 
 target_include_directories(ScientificSimulator PRIVATE
   app/include
