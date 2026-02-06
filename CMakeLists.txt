@@ -43,6 +43,25 @@ add_subdirectory(app/src/systems)
 target_include_directories(ScientificSimulator PRIVATE
   app/include
   external/glad/include
+  external/stb_image/include
+)
+
+
+add_custom_command(TARGET ScientificSimulator POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_SOURCE_DIR}/assets
+          $<TARGET_FILE_DIR:ScientificSimulator>/assets
+)
+
+add_custom_command(TARGET ScientificSimulator POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_SOURCE_DIR}/shaders
+          $<TARGET_FILE_DIR:ScientificSimulator>/shaders
+)
+
+
+target_compile_definitions(ScientificSimulator PRIVATE
+    $<$<CONFIG:Debug>:DEBUG>
 )
 
 # SDL3

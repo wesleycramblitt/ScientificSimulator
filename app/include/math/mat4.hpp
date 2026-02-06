@@ -1,6 +1,7 @@
 #pragma once
 #include "math/vec3.hpp"
 #include "math/quat.hpp"
+#include <iostream>
 
 struct Mat4 { 
     float m[16]; 
@@ -9,6 +10,15 @@ struct Mat4 {
       Mat4 r{};
       r.m[0] = r.m[5] = r.m[10] = r.m[15] = 1.0f;
       return r;
+    }
+
+    void print() {
+        for (int row = 0; row < 4; ++row) {
+            for (int col = 0; col < 4; ++col) {
+                std::cout << m[col * 4 + row] << " ";
+            }
+        std::cout << "\n";
+    }
     }
 
     static Mat4 mul(const Mat4& a, const Mat4& b) {
@@ -25,13 +35,6 @@ struct Mat4 {
       return r;
     }
 
-    static inline Quat normalize(Quat q) {
-        float len2 = q.x*q.x + q.y*q.y + q.z*q.z + q.w*q.w;
-        float inv  = 1.0f / std::sqrt(len2);
-        q.x *= inv; q.y *= inv; q.z *= inv; q.w *= inv;
-        return q;
-    }
-
     static Mat4 perspective(float fovy_rad, float aspect, float znear, float zfar) {
       float f = 1.0f / std::tan(fovy_rad * 0.5f);
       Mat4 r{};
@@ -44,18 +47,18 @@ struct Mat4 {
     }
 
     static Mat4 lookAt(Vec3 eye, Vec3 center, Vec3 up) {
-      Vec3 f = norm(center - eye);
-      Vec3 s = norm(cross(f, up));
-      Vec3 u = cross(s, f);
+      Vec3 f = (center - eye).norm();
+      Vec3 s = f.cross(up).norm();
+      Vec3 u = s.cross(f).norm();
 
       Mat4 r = identity();
       r.m[0]  = s.x;  r.m[4]  = s.y;  r.m[8]  = s.z;
       r.m[1]  = u.x;  r.m[5]  = u.y;  r.m[9]  = u.z;
       r.m[2]  = -f.x; r.m[6]  = -f.y; r.m[10] = -f.z;
 
-      r.m[12] = -dot(s, eye);
-      r.m[13] = -dot(u, eye);
-      r.m[14] =  dot(f, eye);
+      r.m[12] = -s.dot(eye);
+      r.m[13] = -u.dot(eye);
+      r.m[14] =  f.dot(eye);
       return r;
     }
 
@@ -64,7 +67,7 @@ struct Mat4 {
     }
 
     static Mat4 modelTRS(const Vec3& p, Quat q, const Vec3& s) {
-        q = normalize(q);
+        q = q.norm();
 
         const float x = q.x, y = q.y, z = q.z, w = q.w;
 

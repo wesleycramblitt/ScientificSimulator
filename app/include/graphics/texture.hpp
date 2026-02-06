@@ -1,12 +1,16 @@
 #pragma once
 #include <string>
 #include <cstdint>
+#include <glad/gl.h>
+#include "common/macros.hpp"
+
 
 struct Texture {
-    uint32_t width;
-    uint32_t height;
-    uint32_t depth = 1;
-
-    uint32_t mipLevels = 1;
     std::string name;
+    int width;
+    int height;
+    int depth = 1;
+    int channels; 
+    int mipLevels = 1;
 };
+

@@ -1,52 +1,77 @@
 #include "systems/camera_controller_system.hpp"
 #include "core/window.hpp"
+#include "math/vec3.hpp"
+#include "math/quat.hpp"
+#include "components/transform.hpp"
+#include <iostream>
 
-CameraControllerSystem::CameraControllerSystem() {}
 
-CameraControllerSystem::~CameraControllerSystem() {}
+void CameraControllerSystem::update(Registry& registry, Window& window, float dt) {
 
-void CameraControllerSystem::Update(Registry& registry, Window& window, float dt) {
- //    vec3 campos{0.f, 2.f, 6.f};
- //    float yaw = -90.f;
- //    float pitch = -10.f;
- //    float speed = 8.f;
- //    float mousesens = 0.12f;
- //    mat4 p   = perspective(deg2rad(70.f), aspect, 0.05f, 400.f);
- //    mat4 v   = lookat(campos, campos + front, {0,1,0});
- //    mat4 mvp = mul(p, v);
- //
- //    gluseprogram(prog);
- //    gluniformmatrix4fv(umvp, 1, gl_false, mvp.m);
- //
- // auto deg2rad = [](float d){ return d * 3.1415926535f / 180.f; };
- //    vec3 front{
- //      std::cos(deg2rad(yaw)) * std::cos(deg2rad(pitch)),
- //      std::sin(deg2rad(pitch)),
- //      std::sin(deg2rad(yaw)) * std::cos(deg2rad(pitch))
- //    };
- //    front = norm(front);
- //
- //    vec3 right = norm(cross(front, {0,1,0}));
- //    vec3 up    = norm(cross(right, front));
- //
- //    float s = speed * (keys[sdl_scancode_lshift] ? 3.0f : 1.0f);
- //
- //    if (keys[SDL_SCANCODE_W]) camPos = camPos + front * (s * dt);
- //    if (keys[SDL_SCANCODE_S]) camPos = camPos - front * (s * dt);
- //    if (keys[SDL_SCANCODE_A]) camPos = camPos - right * (s * dt);
- //    if (keys[SDL_SCANCODE_D]) camPos = camPos + right * (s * dt);
- //    if (keys[SDL_SCANCODE_Q]) camPos = camPos - up    * (s * dt);
- //    if (keys[SDL_SCANCODE_E]) camPos = camPos + up    * (s * dt);
- //
+   if (!window.event_state.keyboardState_) return;
+    
+   Camera* camera = nullptr;
+   CameraController* cameraController = nullptr;
+   Transform* cam_xform = nullptr;
 
-          // if (e.type == SDL_EVENT_MOUSE_MOTION) {
-          //   //SDL_Log("mouse rel: %f %f", (double)e.motion.xrel, (double)e.motion.yrel);
-          //   float dx = (float)e.motion.xrel;
-          //   float dy = (float)e.motion.yrel;
-          //   yaw   += dx * mousesens;
-          //   pitch -= dy * mousesens;
-          //   if (pitch > 89.f) pitch = 89.f;
-          //   if (pitch < -89.f) pitch = -89.f;
-          // }
+    for (auto e : registry.view<Camera, CameraController, Transform>()) {
+         camera = &registry.get<Camera>(e);
+         cameraController = &registry.get<CameraController>(e);
+         cam_xform = &registry.get<Transform>(e);
+         break;
+    }
 
+    if (!camera || !cameraController || ! cam_xform) return;
+
+    std::cout << "in camera system update" << std::endl;
+
+    Vec3 worldUp{0.0f, 1.0f, 0.0f};
+    float dx = window.event_state.mouseRelX_;
+    float dy = window.event_state.mouseRelY_;
+
+    std::cout << "dx: " << dx << std::endl;
+    std::cout << "dy: " << dy << std:: endl;
+
+    const float yawDelta   = dx * cameraController->mouse_sensitivity;
+    const float pitchDelta = dy * cameraController->mouse_sensitivity;
+
+    Quat qYaw = Quat::fromAxisAngle(worldUp, yawDelta);
+    cam_xform->rotation = (qYaw * cam_xform->rotation).norm();
+
+    Vec3 right = cam_xform->rotation.right().norm();    // or rotate({1,0,0})
+    Quat qPitch = Quat::fromAxisAngle(right, -pitchDelta); // minus sign depends on your dy convention
+
+    const float maxUpDot = 0.999f; // ~87-89 degrees; adjust to taste
+
+    Vec3 fwdBefore = cam_xform->rotation.forward().norm();
+    Vec3 fwdAfter  = qPitch * cam_xform->rotation.forward().norm();
+
+    if (std::abs(fwdAfter.dot(worldUp)) < maxUpDot) {
+        cam_xform->rotation = (qPitch * cam_xform->rotation).norm();
+    }
+
+    Vec3 front = cam_xform->rotation.forward().norm();
+    Vec3 up = cam_xform->rotation.up().norm();
+
+    float s = cameraController->move_speed * 
+        (window.event_state.keyboardState_[SDL_SCANCODE_LSHIFT] ? cameraController->sprint_mult : 1.0f);
+
+    Vec3 move{0,0,0};
+
+    const float step = s * dt;
+
+    std::cout << "step" << step << std::endl;
+    
+    if (window.event_state.keyboardState_[SDL_SCANCODE_W]) move = move + front * step;
+    if (window.event_state.keyboardState_[SDL_SCANCODE_S]) move = move - front * step;
+    if (window.event_state.keyboardState_[SDL_SCANCODE_A]) move  = move - right * step;
+    if (window.event_state.keyboardState_[SDL_SCANCODE_D]) move = move + right * step;
+    if (window.event_state.keyboardState_[SDL_SCANCODE_Q]) move = move - up    * step;
+    if (window.event_state.keyboardState_[SDL_SCANCODE_E]) move = move + up    * step;
+
+    cam_xform->position = cam_xform->position + move;
+    std::cout << "cam_xform position: " << cam_xform->position.x << std::endl;
+
+    window.event_state.mouseRelX_ = 0;
+    window.event_state.mouseRelY_ = 0;
 }

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include "common/macros.hpp"
 
 
 ShaderManager::~ShaderManager() {
@@ -71,17 +72,17 @@ std::string ShaderManager::readTextFile(const std::string& path) {
 GLuint ShaderManager::compileShader(GLenum stage, const std::string& source, const std::string& debug_name) {
     GLuint sh = glCreateShader(stage);
     const char* src = source.c_str();
-    glShaderSource(sh, 1, &src, nullptr);
-    glCompileShader(sh);
+    GL_CALL(glShaderSource(sh, 1, &src, nullptr));
+    GL_CALL(glCompileShader(sh));
 
     GLint ok = 0;
-    glGetShaderiv(sh, GL_COMPILE_STATUS, &ok);
+    GL_CALL(glGetShaderiv(sh, GL_COMPILE_STATUS, &ok));
     if (!ok) {
         GLint len = 0;
-        glGetShaderiv(sh, GL_INFO_LOG_LENGTH, &len);
+        GL_CALL(glGetShaderiv(sh, GL_INFO_LOG_LENGTH, &len));
         std::string log(len, '\0');
-        glGetShaderInfoLog(sh, len, nullptr, log.data());
-        glDeleteShader(sh);
+        GL_CALL(glGetShaderInfoLog(sh, len, nullptr, log.data()));
+        GL_CALL(glDeleteShader(sh));
         throw std::runtime_error("Shader compile failed: " + debug_name + "\n" + log);
     }
     return sh;
@@ -89,18 +90,18 @@ GLuint ShaderManager::compileShader(GLenum stage, const std::string& source, con
 
 GLuint ShaderManager::linkProgram(GLuint vs, GLuint fs, const std::string& debug_name) {
     GLuint p = glCreateProgram();
-    glAttachShader(p, vs);
-    glAttachShader(p, fs);
-    glLinkProgram(p);
+    GL_CALL(glAttachShader(p, vs));
+    GL_CALL(glAttachShader(p, fs));
+    GL_CALL(glLinkProgram(p));
 
     GLint ok = 0;
-    glGetProgramiv(p, GL_LINK_STATUS, &ok);
+    GL_CALL(glGetProgramiv(p, GL_LINK_STATUS, &ok));
     if (!ok) {
         GLint len = 0;
-        glGetProgramiv(p, GL_INFO_LOG_LENGTH, &len);
+        GL_CALL(glGetProgramiv(p, GL_INFO_LOG_LENGTH, &len));
         std::string log(len, '\0');
-        glGetProgramInfoLog(p, len, nullptr, log.data());
-        glDeleteProgram(p);
+        GL_CALL(glGetProgramInfoLog(p, len, nullptr, log.data()));
+        GL_CALL(glDeleteProgram(p));
         throw std::runtime_error("Program link failed: " + debug_name + "\n" + log);
     }
     return p;
