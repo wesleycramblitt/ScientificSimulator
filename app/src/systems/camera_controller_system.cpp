@@ -23,54 +23,49 @@ void CameraControllerSystem::update(Registry& registry, Window& window, float dt
 
     if (!camera || !cameraController || ! cam_xform) return;
 
-    std::cout << "in camera system update" << std::endl;
+    // std::cout << "in camera system update" << std::endl;
 
     Vec3 worldUp{0.0f, 1.0f, 0.0f};
-    float dx = window.event_state.mouseRelX_;
-    float dy = window.event_state.mouseRelY_;
+    float dx = -window.event_state.mouseRelX_;
+    float dy = -window.event_state.mouseRelY_;
 
-    std::cout << "dx: " << dx << std::endl;
-    std::cout << "dy: " << dy << std:: endl;
+    cameraController->yaw  += dx * cameraController->mouse_sensitivity;
+    cameraController->pitch += dy * cameraController->mouse_sensitivity;
 
-    const float yawDelta   = dx * cameraController->mouse_sensitivity;
-    const float pitchDelta = dy * cameraController->mouse_sensitivity;
+    //~89 deg
+    const float maxPitch = 1.55f;
+    cameraController->pitch = std::clamp(cameraController->pitch, -maxPitch, maxPitch);
 
-    Quat qYaw = Quat::fromAxisAngle(worldUp, yawDelta);
-    cam_xform->rotation = (qYaw * cam_xform->rotation).norm();
+    const float twoPi = 6.28318530718f;
+    if (cameraController->yaw > twoPi)  cameraController->yaw -= twoPi;
+    if (cameraController->yaw < -twoPi) cameraController->yaw += twoPi;
 
-    Vec3 right = cam_xform->rotation.right().norm();    // or rotate({1,0,0})
-    Quat qPitch = Quat::fromAxisAngle(right, -pitchDelta); // minus sign depends on your dy convention
 
-    const float maxUpDot = 0.999f; // ~87-89 degrees; adjust to taste
+    Quat qYaw = Quat::fromAxisAngle(worldUp, cameraController->yaw);
 
-    Vec3 fwdBefore = cam_xform->rotation.forward().norm();
-    Vec3 fwdAfter  = qPitch * cam_xform->rotation.forward().norm();
-
-    if (std::abs(fwdAfter.dot(worldUp)) < maxUpDot) {
-        cam_xform->rotation = (qPitch * cam_xform->rotation).norm();
-    }
-
-    Vec3 front = cam_xform->rotation.forward().norm();
-    Vec3 up = cam_xform->rotation.up().norm();
+    Vec3 right{1.0f, 0.0f, 0.0f};
+    Vec3 localRight = (qYaw * right).norm();  
+    Quat qPitch = Quat::fromAxisAngle(localRight, cameraController->pitch); 
+    cam_xform->rotation = (qPitch * qYaw).norm();
+    Vec3 camFwd =  (cam_xform->rotation * Vec3{0.0f, 0.0f, -1.0f}).norm();
+    Vec3 front = (camFwd - worldUp * camFwd.dot(worldUp)).norm();
+    Vec3 up    = worldUp;          
 
     float s = cameraController->move_speed * 
-        (window.event_state.keyboardState_[SDL_SCANCODE_LSHIFT] ? cameraController->sprint_mult : 1.0f);
+    (window.event_state.keyboardState_[SDL_SCANCODE_LSHIFT] ? cameraController->sprint_mult : 1.0f);
 
     Vec3 move{0,0,0};
 
     const float step = s * dt;
-
-    std::cout << "step" << step << std::endl;
     
     if (window.event_state.keyboardState_[SDL_SCANCODE_W]) move = move + front * step;
     if (window.event_state.keyboardState_[SDL_SCANCODE_S]) move = move - front * step;
-    if (window.event_state.keyboardState_[SDL_SCANCODE_A]) move  = move - right * step;
-    if (window.event_state.keyboardState_[SDL_SCANCODE_D]) move = move + right * step;
+    if (window.event_state.keyboardState_[SDL_SCANCODE_A]) move  = move - localRight * step;
+    if (window.event_state.keyboardState_[SDL_SCANCODE_D]) move = move + localRight * step;
     if (window.event_state.keyboardState_[SDL_SCANCODE_Q]) move = move - up    * step;
     if (window.event_state.keyboardState_[SDL_SCANCODE_E]) move = move + up    * step;
 
     cam_xform->position = cam_xform->position + move;
-    std::cout << "cam_xform position: " << cam_xform->position.x << std::endl;
 
     window.event_state.mouseRelX_ = 0;
     window.event_state.mouseRelY_ = 0;

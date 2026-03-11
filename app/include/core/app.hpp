@@ -5,6 +5,8 @@
 #include "systems/camera_controller_system.hpp"
 #include "systems/primitive_mesh_system.hpp"
 #include "systems/cubemap_system.hpp"
+#include "systems/polygon_mode_system.hpp"
+#include "systems/mesh_asset_system.hpp"
 
 class App {
     public:
@@ -21,6 +23,8 @@ class App {
         RenderSystem renderSystem_;
         PrimitiveMeshSystem primitiveMeshSystem_;
         CameraControllerSystem cameraControllerSystem_;
+        PolygonModeSystem polygonModeSystem_;
         CubeMapSystem cubeMapSystem_;
+        MeshAssetSystem meshAssetSystem_;
 };
 

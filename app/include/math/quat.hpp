@@ -1,10 +1,12 @@
 #pragma once
 #include "math/vec3.hpp"
+#include <ostream>
 
 struct Quat {
+    
     float w,x,y,z;
     
-    inline Quat operator*(const Quat& b)
+    inline Quat operator*(const Quat& b) const
     {
         return Quat{
             w*b.w - x*b.x - y*b.y - z*b.z,
@@ -13,7 +15,8 @@ struct Quat {
             w*b.z + x*b.y - y*b.x + z*b.w
         };
     }
-    
+
+   
     static Quat fromAxisAngle(Vec3& axis, float angleRad)
     {
         Vec3 n = axis.norm();           // ensure unit axis
@@ -42,8 +45,8 @@ struct Quat {
     inline Vec3 forward() {
         
         return {
-            2.0f * (x*z + w*y),
-            2.0f * (y*z - w*x),
+            (2.0f * (x*z + w*y)),
+            (2.0f * (y*z - w*x)),
             -(1.0f - 2.0f * (x*x + y*y))
         };
     }
@@ -59,15 +62,22 @@ struct Quat {
      inline Quat norm() {
         float len2 = x*x + y*y + z*z + w*w;
         float inv  = 1.0f / std::sqrt(len2);
-        x *= inv; y *= inv; z *= inv; w *= inv;
-        return Quat{w,x,y,z};
+        return Quat{w*inv,x*inv,y*inv,z*inv};
     }
 
 
 };
 
 
-
+inline std::ostream& operator<<(std::ostream& os, const Quat& q)
+{
+    os << "Quat("
+       << "w=" << q.w << ", "
+       << "x=" << q.x << ", "
+       << "y=" << q.y << ", "
+       << "z=" << q.z << ")";
+    return os;
+}
 
 inline Vec3 operator*(const Quat& q, const Vec3& v)
 {

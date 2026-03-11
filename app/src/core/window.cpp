@@ -18,7 +18,7 @@ Window::Window() {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24); 
     
     // Create window
     window = SDL_CreateWindow(
@@ -78,8 +78,8 @@ void Window::getEvents() {
           if (e.type == SDL_EVENT_QUIT) should_close = true;
           if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE) should_close = true;
           if (e.type == SDL_EVENT_MOUSE_MOTION) {
-            mouseRelX += (float)e.motion.xrel;
-            mouseRelY += (float)e.motion.yrel;
+            mouseRelX = (float)e.motion.xrel;
+            mouseRelY = (float)e.motion.yrel;
           }
           if (e.type == SDL_EVENT_WINDOW_RESIZED) {
             glViewport(0, 0, e.window.data1, e.window.data2);

@@ -33,12 +33,30 @@ add_executable(ScientificSimulator
   external/glad/src/gl.c
 )
 
+# Assimp for importing obj, stl, and other files
+FetchContent_Declare(
+    assimp
+    URL "${CMAKE_SOURCE_DIR}/external/assimp/assimp-6.0.4.zip"
+)
+
+# Make the fetched build smaller/faster (optional but recommended)
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+
+# You can also disable some importers/exporters if you want later.
+
+FetchContent_MakeAvailable(assimp)
+
+
+
 add_subdirectory(app/src/components)
 add_subdirectory(app/src/core)
 add_subdirectory(app/src/entities)
 add_subdirectory(app/src/graphics)
 add_subdirectory(app/src/scene)
 add_subdirectory(app/src/systems)
+add_subdirectory(app/src/assets)
 
 target_include_directories(ScientificSimulator PRIVATE
   app/include
@@ -83,3 +101,8 @@ else()
   # If you *explicitly* use EGL instead of GLX, use this instead:
   # target_link_libraries(ScientificSimulator PRIVATE OpenGL::OpenGL OpenGL::EGL)
 endif()
+
+
+# Assimp
+target_link_libraries(ScientificSimulator PRIVATE assimp::assimp)
+

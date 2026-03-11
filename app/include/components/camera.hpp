@@ -15,7 +15,7 @@ struct Camera {
     float ortho_height = 10.0f;   // world units; width derived from aspect
 
     // Common
-    float near_plane = 0.1f;
+    float near_plane = 0.05f;
     float far_plane  = 1000.0f;
 
     // Optional tuning

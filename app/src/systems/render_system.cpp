@@ -42,10 +42,13 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
 
     window.getDimensions(width,height,aspect);
 
+    Vec3 forward = (cam_xform->rotation * Vec3{0.0f, 0.0f, -1.0f}).norm();
+    Vec3 up      = (cam_xform->rotation * Vec3{0.0f, 1.0f,  0.0f}).norm();
+
     Mat4 view = Mat4::lookAt(
         cam_xform->position,
-        cam_xform->position + cam_xform->rotation.forward(),
-        cam_xform->rotation.up()
+        cam_xform->position + forward,
+        up
     );
 
     Mat4 proj = Mat4::perspective(cam->fov_y_radians, aspect, cam->near_plane, cam->far_plane);
@@ -97,11 +100,10 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
     GL_CALL(glDepthMask(GL_TRUE));
     GL_CALL(glEnable(GL_CULL_FACE));
 
-
     uint32_t mesh_program_ = shader_manager_.getOrLoad(
-        "mesh_basic",
-        "shaders/common/mesh_basic.vert",
-        "shaders/common/mesh_basic.frag"
+        "lambertian", //"mesh_basic",
+        "shaders/lambertian/lambertian.vert",//"shaders/common/mesh_basic.vert",
+        "shaders/lambertian/lambertian.frag"//"shaders/common/mesh_basic.frag"
     );
 
     GL_CALL(glUseProgram(mesh_program_));
@@ -109,6 +111,8 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
     u_view = glGetUniformLocation(mesh_program_, "u_view");
     u_proj = glGetUniformLocation(mesh_program_, "u_proj");
     const GLint u_model =glGetUniformLocation(mesh_program_, "u_model");
+    const GLint u_light_dir = glGetUniformLocation(mesh_program_, "u_light_dir");
+    const GLint u_object_color = glGetUniformLocation(mesh_program_, "u_object_color");
 
     // std::cout << "view: " << u_view << std::endl;
     // view.print();
@@ -116,7 +120,10 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
     // proj.print();
     GL_CALL(glUniformMatrix4fv(u_view, 1, GL_FALSE, view.m)); 
     GL_CALL(glUniformMatrix4fv(u_proj, 1, GL_FALSE, proj.m));
-    
+    GL_CALL(glUniform3f(u_object_color, 0.4f, 0.8f, 0.4f));
+    //downward and rotated a bit on Y
+    GL_CALL(glUniform3f(u_light_dir, 0.0f, -0.866f, -0.3f));
+       
     for (auto e : registry.view<Transform, Renderable>()) {
         auto& transform = registry.get<Transform>(e);
         auto& renderable = registry.get<Renderable>(e);

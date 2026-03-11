@@ -46,6 +46,7 @@ struct Mat4 {
       return r;
     }
 
+
     static Mat4 lookAt(Vec3 eye, Vec3 center, Vec3 up) {
       Vec3 f = (center - eye).norm();
       Vec3 s = f.cross(up).norm();

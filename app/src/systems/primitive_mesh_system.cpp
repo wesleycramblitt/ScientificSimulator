@@ -32,19 +32,47 @@ Mesh PrimitiveMeshSystem::createMesh(Cube cube)
         Vec3 v0, v1, v2, v3;
     };
 
+
     Face faces[6] = {
         // +X
-        { { 1, 0, 0 }, { h,-h,-h }, { h,-h, h }, { h, h, h }, { h, h,-h } },
+        { { 1, 0, 0 },
+          {  h, -h, -h },
+          {  h,  h, -h },
+          {  h,  h,  h },
+          {  h, -h,  h } },
+
         // -X
-        { {-1, 0, 0 }, {-h,-h, h }, {-h,-h,-h }, {-h, h,-h }, {-h, h, h } },
+        { { -1, 0, 0 },
+          { -h, -h,  h },
+          { -h,  h,  h },
+          { -h,  h, -h },
+          { -h, -h, -h } },
+
         // +Y
-        { { 0, 1, 0 }, {-h, h,-h }, { h, h,-h }, { h, h, h }, {-h, h, h } },
-        // -Y
-        { { 0,-1, 0 }, {-h,-h, h }, { h,-h, h }, { h,-h,-h }, {-h,-h,-h } },
-        // +Z
-        { { 0, 0, 1 }, {-h,-h, h }, {-h, h, h }, { h, h, h }, { h,-h, h } },
+        { { 0, 1, 0 },
+          { -h,  h, -h },
+          {  -h,  h, h },
+          {  h,  h,  h },
+          { h,  h,  -h } },
+        // -Y (bottom)
+        { { 0, -1, 0 },
+          { -h, -h,  h },  // v0
+          { -h, -h, -h },  // v1
+          {  h, -h, -h },  // v2
+          {  h, -h,  h } }, // v3        
+       // +Z
+        { { 0, 0, 1 },
+          { -h, -h,  h },
+          {  h, -h,  h },
+          {  h,  h,  h },
+          { -h,  h,  h } },
+
         // -Z
-        { { 0, 0,-1 }, { h,-h,-h }, { h, h,-h }, {-h, h,-h }, {-h,-h,-h } }
+        { { 0, 0, -1 },
+          { -h, -h, -h },
+          { -h,  h, -h },
+          {  h,  h, -h },
+          {  h, -h, -h } }
     };
 
     for (int i = 0; i < 6; ++i)
@@ -61,9 +89,9 @@ Mesh PrimitiveMeshSystem::createMesh(Cube cube)
         mesh.indices.push_back(startIndex + 1);
         mesh.indices.push_back(startIndex + 2);
 
+        mesh.indices.push_back(startIndex + 0);
         mesh.indices.push_back(startIndex + 2);
         mesh.indices.push_back(startIndex + 3);
-        mesh.indices.push_back(startIndex + 0);
     }
 
     return mesh;
