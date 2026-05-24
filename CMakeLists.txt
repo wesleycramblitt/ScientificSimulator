@@ -48,7 +48,8 @@ set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(assimp)
 
-
+# FluidX3D-CLI for GPU-accelerated LBM CFD simulation
+add_subdirectory(external/fluidx3d)
 
 add_subdirectory(app/src/components)
 add_subdirectory(app/src/core)
@@ -105,4 +106,10 @@ endif()
 
 # Assimp
 target_link_libraries(ScientificSimulator PRIVATE assimp::assimp)
+
+# FluidX3D
+target_link_libraries(ScientificSimulator PRIVATE fluidx3d)
+
+add_executable(test_fluidx3d tests/test_fluidx3d.cpp)
+target_link_libraries(test_fluidx3d PRIVATE fluidx3d)
 
