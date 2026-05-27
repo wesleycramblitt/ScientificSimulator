@@ -24,8 +24,6 @@ public:
     void update(Registry& registry, const Window& window);
 
 private:
-    void setupDockSpace();
-
     void drawEntityList(const Registry& registry);
     void drawViewportInfo(const Window& window);
 
@@ -33,6 +31,5 @@ private:
     static std::vector<const char*> componentTags(const Registry& registry, Entity e);
 
     bool initialized_ = false;
-    bool dockspace_ready_ = false;
 };
 

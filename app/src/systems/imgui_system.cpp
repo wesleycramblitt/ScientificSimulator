@@ -2,7 +2,6 @@
 #include "core/window.hpp"
 
 #include "imgui.h"
-#include "imgui_internal.h"  // for DockBuilder
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_opengl3.h"
 
@@ -49,7 +48,6 @@ bool ImGuiSystem::init(Window& window) {
     ImGui::CreateContext();
 
     ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     ImGui::StyleColorsDark();
@@ -79,30 +77,6 @@ void ImGuiSystem::shutdown() {
 }
 
 // -----------------------------------------------------------------------
-// Dockspace setup (called once on first frame)
-// -----------------------------------------------------------------------
-
-void ImGuiSystem::setupDockSpace() {
-    ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
-
-    ImGui::DockBuilderRemoveNode(dockspace_id);
-    ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
-    ImGui::DockBuilderSetNodeSize(dockspace_id, vp->Size);
-
-    // Central viewport (80%) | Bottom panel (20%)
-    ImGuiID central_id, bottom_id;
-    ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Down, 0.20f, &bottom_id, &central_id);
-
-    if (auto* node = ImGui::DockBuilderGetNode(bottom_id)) {
-        node->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
-    }
-
-    ImGui::DockBuilderFinish(dockspace_id);
-    dockspace_ready_ = true;
-}
-
-// -----------------------------------------------------------------------
 // Per-frame update
 // -----------------------------------------------------------------------
 
@@ -119,36 +93,6 @@ void ImGuiSystem::update(Registry& registry, const Window& window) {
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
-    // --- Invisible host window for the dockspace ---
-    {
-        ImGuiViewport* vp = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(vp->WorkPos);
-        ImGui::SetNextWindowSize(vp->WorkSize);
-        ImGui::SetNextWindowViewport(vp->ID);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-
-        ImGuiWindowFlags host_flags = ImGuiWindowFlags_NoDocking
-            | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse
-            | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
-            | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus
-            | ImGuiWindowFlags_NoBackground;
-
-        ImGui::Begin("DockSpaceHost", nullptr, host_flags);
-        ImGui::PopStyleVar(3);
-
-        ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
-        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
-
-        // Build default layout on the very first frame
-        if (!dockspace_ready_) {
-            setupDockSpace();
-        }
-
-        ImGui::End();
-    }
-
     // --- Panels ---
     drawEntityList(registry);
     drawViewportInfo(window);
@@ -164,8 +108,11 @@ void ImGuiSystem::update(Registry& registry, const Window& window) {
 
 void ImGuiSystem::drawEntityList(const Registry& registry) {
     ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + 10, vp->WorkPos.y + 10),
+
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0, 0, 0, 120));
+    ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x, vp->WorkPos.y),
                             ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x * 0.20f, 0), ImGuiCond_Always);
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize
         | ImGuiWindowFlags_NoDocking;
@@ -195,6 +142,7 @@ void ImGuiSystem::drawEntityList(const Registry& registry) {
     }
 
     ImGui::End();
+    ImGui::PopStyleColor(1);
 }
 
 // -----------------------------------------------------------------------
@@ -213,12 +161,13 @@ void ImGuiSystem::drawViewportInfo(const Window& window) {
         | ImGuiWindowFlags_NoCollapse
         | ImGuiWindowFlags_NoDocking
         | ImGuiWindowFlags_NoBringToFrontOnFocus
-        | ImGuiWindowFlags_NoNavFocus;
+        | ImGuiWindowFlags_NoNavFocus
+        | ImGuiWindowFlags_AlwaysAutoResize;
 
     // Bottom-right corner, above the future bottom panel (20% of viewport)
     ImGuiViewport* vp = ImGui::GetMainViewport();
-    float x = vp->WorkPos.x + vp->WorkSize.x - 270.0f;
-    float y = vp->WorkPos.y + vp->WorkSize.y * 0.78f; // above the 20% bottom area + padding
+    float x = vp->WorkPos.x ;
+    float y = vp->WorkPos.y + vp->WorkSize.y - 20.0f; // above the 20% bottom area + padding
     ImGui::SetNextWindowPos(ImVec2(x, y), ImGuiCond_Always);
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 4));
@@ -244,7 +193,7 @@ void ImGuiSystem::drawViewportInfo(const Window& window) {
     if (window.wireframe) {
         ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), "Wireframe Mode: Toggle Z");
     } else {
-        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.6f, 1.0f), "Fill Mode [X]");
+        ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.6f, 1.0f), "Fill Mode [X]");
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("X — wireframe  |  Z — fill");
