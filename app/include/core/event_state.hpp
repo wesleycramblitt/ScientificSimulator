@@ -4,13 +4,13 @@
 class EventState {
     public:
         EventState();
-        EventState( SDL_Event* events, const int* num_events,  const bool* keyboardState,float mouseRelX, float mouseRelY); 
+        EventState( SDL_Event* events, int num_events,  const bool* keyboardState,float mouseRelX, float mouseRelY); 
         ~EventState();
-        void SetState( SDL_Event* events,const int* num_events, const bool* keyboardState, float mouseRelX, float mouseRelY);
+        void SetState( SDL_Event* events, int num_events, const bool* keyboardState, float mouseRelX, float mouseRelY);
 
        const bool* keyboardState_;
        SDL_Event* events_;  
-       const int* num_events_ = 0;
+       int num_events_ = 0;
        float mouseRelX_ = 0;
        float mouseRelY_ = 0;
 

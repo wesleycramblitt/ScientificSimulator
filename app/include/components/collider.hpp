@@ -32,7 +32,7 @@ struct Collider {
     // Plane: normal is local +Y after applying local_rotation; distance via local_offset
 
     // Mesh collider (typically static only in v1)
-    Mesh mesh = 0;                 // only used if shape == Mesh
+    Mesh mesh {};                 // only used if shape == Mesh
 
     ColliderMaterial material {};
 

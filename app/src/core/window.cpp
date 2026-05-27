@@ -60,33 +60,42 @@ Window::Window() {
     GL_CALL(glViewport(0,0, 1280, 720));
 
     SDL_SetWindowRelativeMouseMode(window, true);
+    setInputMode(InputMode::FPS);
 }
 
 
 void Window::getEvents() {
     SDL_PumpEvents();
 
-    SDL_Event events[100]; //max of 100 events per frame
-    int num_events = SDL_PeepEvents(events, 100, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST);
+    event_buffer.clear();
+
+    // Poll all pending events
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+        event_buffer.push_back(e);
+    }
+
     const bool* keys = SDL_GetKeyboardState(nullptr);
 
     float mouseRelX = event_state.mouseRelX_;
     float mouseRelY = event_state.mouseRelY_;
 
-    for (size_t i{}; i < num_events; i++) {
-         SDL_Event e = events[i];
-          if (e.type == SDL_EVENT_QUIT) should_close = true;
-          if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE) should_close = true;
-          if (e.type == SDL_EVENT_MOUSE_MOTION) {
-            mouseRelX = (float)e.motion.xrel;
-            mouseRelY = (float)e.motion.yrel;
+    for (const auto& ev : event_buffer) {
+          if (ev.type == SDL_EVENT_QUIT) should_close = true;
+          if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_ESCAPE) should_close = true;
+          if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_F1) {
+              setInputMode(input_mode_ == InputMode::FPS ? InputMode::UI : InputMode::FPS);
           }
-          if (e.type == SDL_EVENT_WINDOW_RESIZED) {
-            glViewport(0, 0, e.window.data1, e.window.data2);
+          if (ev.type == SDL_EVENT_MOUSE_MOTION) {
+            mouseRelX = (float)ev.motion.xrel;
+            mouseRelY = (float)ev.motion.yrel;
+          }
+          if (ev.type == SDL_EVENT_WINDOW_RESIZED) {
+            glViewport(0, 0, ev.window.data1, ev.window.data2);
           }
      }
 
-    event_state.SetState(events, &num_events, keys, mouseRelX, mouseRelY); 
+    event_state.SetState(event_buffer.data(), static_cast<int>(event_buffer.size()), keys, mouseRelX, mouseRelY);
 }
 
 Window::~Window() {
@@ -114,4 +123,9 @@ void Window::swapBuffers() {
 void Window::getDimensions(int& _width, int& _height, float& _aspect) const{
     SDL_GetWindowSize(window, &_width, &_height);
     _aspect = (_height > 0) ? (float)_width / (float)_height : 1.0f;
+}
+
+void Window::setInputMode(InputMode mode) {
+    input_mode_ = mode;
+    SDL_SetWindowRelativeMouseMode(window, mode == InputMode::FPS);
 }

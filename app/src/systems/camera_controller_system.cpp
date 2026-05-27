@@ -8,6 +8,8 @@
 
 void CameraControllerSystem::update(Registry& registry, Window& window, float dt) {
 
+   if (window.getInputMode() != InputMode::FPS) return;
+
    if (!window.event_state.keyboardState_) return;
     
    Camera* camera = nullptr;

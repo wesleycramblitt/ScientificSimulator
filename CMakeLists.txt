@@ -51,6 +51,11 @@ FetchContent_MakeAvailable(assimp)
 # FluidX3D-CLI for GPU-accelerated LBM CFD simulation
 add_subdirectory(external/fluidx3d)
 
+# Dear ImGui for debug/editor UI (docking branch)
+add_subdirectory(external/imgui)
+target_include_directories(imgui PUBLIC external/glad/include)
+target_link_libraries(imgui PUBLIC SDL3::SDL3 OpenGL::GL)
+
 add_subdirectory(app/src/components)
 add_subdirectory(app/src/core)
 add_subdirectory(app/src/entities)
@@ -109,6 +114,9 @@ target_link_libraries(ScientificSimulator PRIVATE assimp::assimp)
 
 # FluidX3D
 target_link_libraries(ScientificSimulator PRIVATE fluidx3d)
+
+# Dear ImGui
+target_link_libraries(ScientificSimulator PRIVATE imgui)
 
 add_executable(test_fluidx3d tests/test_fluidx3d.cpp)
 target_link_libraries(test_fluidx3d PRIVATE fluidx3d)

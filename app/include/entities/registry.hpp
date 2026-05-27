@@ -20,6 +20,7 @@ struct Entity {
 
     id_type id{std::numeric_limits<id_type>::max()};
     gen_type gen{0};
+    std::string name; 
 
     friend bool operator==(const Entity& a, const Entity& b) noexcept {
         return a.id == b.id && a.gen == b.gen;
@@ -40,10 +41,14 @@ public:
     Registry& operator=(Registry&&) noexcept = default;
 
     // ---- Entity lifecycle ----
-    [[nodiscard]] Entity create();
+    [[nodiscard]] Entity create(std::string name);
     void destroy(Entity e);
     [[nodiscard]] bool valid(Entity e) const noexcept;
     void clear();
+
+    // ---- Introspection ----
+    [[nodiscard]] std::vector<Entity> all_entities() const noexcept;
+    [[nodiscard]] std::size_t entity_count() const noexcept;
 
     // ---- Component operations ----
     template <class T, class... Args>
@@ -175,6 +180,8 @@ private:
     std::vector<std::uint8_t> alive_;
     // recycled ids
     std::vector<Entity::id_type> free_ids_;
+
+    std::vector<std::string> names_;
 
     // component pools by type
     std::unordered_map<std::type_index, std::unique_ptr<IPool>> pools_;

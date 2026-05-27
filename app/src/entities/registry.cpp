@@ -1,6 +1,6 @@
 #include "entities/registry.hpp"
 
-Entity Registry::create() {
+Entity Registry::create(std::string name) {
     Entity::id_type id;
 
     if (!free_ids_.empty()) {
@@ -14,7 +14,9 @@ Entity Registry::create() {
         alive_.push_back(1u);
     }
 
-    return Entity{id, gen_[id]};
+    names_.push_back(name);
+
+    return Entity{id, gen_[id], name};
 }
 
 bool Registry::valid(Entity e) const noexcept {
@@ -31,6 +33,7 @@ void Registry::destroy(Entity e) {
     // Mark dead and bump generation so stale handles become invalid
     alive_[e.id] = 0u;
     ++gen_[e.id];
+    names_[e.id] = "";
 
     // Remove all components for this entity id from every pool.
     // (This is why we keep IPool type erasure.)
@@ -49,6 +52,7 @@ void Registry::clear() {
         if (alive_[id]) {
             alive_[id] = 0u;
             ++gen_[id];
+            names_[id] = "";
             free_ids_.push_back(id);
         }
     }
@@ -61,4 +65,22 @@ void Registry::clear() {
             pool->remove_entity(id);
         }
     }
+}
+
+std::vector<Entity> Registry::all_entities() const noexcept {
+    std::vector<Entity> result;
+    for (Entity::id_type id = 0; id < alive_.size(); ++id) {
+        if (alive_[id]) {
+            result.push_back(Entity{id, gen_[id], names_[id]});
+        }
+    }
+    return result;
+}
+
+std::size_t Registry::entity_count() const noexcept {
+    std::size_t count = 0;
+    for (Entity::id_type id = 0; id < alive_.size(); ++id) {
+        if (alive_[id]) ++count;
+    }
+    return count;
 }

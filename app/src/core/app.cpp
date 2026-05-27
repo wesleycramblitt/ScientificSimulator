@@ -5,9 +5,15 @@
 App::App() : isRunning_(false),
     textureManager_(), cubeMapSystem_(&meshManager_, &textureManager_), meshAssetSystem_(&meshManager_), 
     meshManager_(),  primitiveMeshSystem_(&meshManager_), renderSystem_(&textureManager_, &meshManager_)  
-{}
+{
+    if (!imguiSystem_.init(window_)) {
+        std::cerr << "Failed to initialize ImGuiSystem\n";
+    }
+}
 
-App::~App() {     }
+App::~App() {
+    imguiSystem_.shutdown();
+}
 
 void App::Run() {
     const std::string sceneName = "Default";
@@ -28,6 +34,9 @@ void App::Run() {
         //Physics System
         //Rendering System
         renderSystem_.update(scene.registry, window_, 1);
+
+        //ImGui overlay (after 3D, before swap)
+        imguiSystem_.update(scene.registry, window_);
 
         window_.swapBuffers();
     }

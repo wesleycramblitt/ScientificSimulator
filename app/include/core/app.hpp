@@ -7,6 +7,7 @@
 #include "systems/cubemap_system.hpp"
 #include "systems/polygon_mode_system.hpp"
 #include "systems/mesh_asset_system.hpp"
+#include "systems/imgui_system.hpp"
 
 class App {
     public:
@@ -26,5 +27,6 @@ class App {
         PolygonModeSystem polygonModeSystem_;
         CubeMapSystem cubeMapSystem_;
         MeshAssetSystem meshAssetSystem_;
+        ImGuiSystem imguiSystem_;
 };
 
