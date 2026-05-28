@@ -7,12 +7,14 @@
 #include "components/grid.hpp"
 #include "components/disabled.hpp"
 #include "components/mirror.hpp"
+#include "components/fluid_domain.hpp"
 
 #include "core/window.hpp"
 #include "math/mat4.hpp"
 #include "math/quat.hpp"
 
 #include <glad/gl.h>
+#include <cstdio>
 #include <stdexcept>
 #include <iostream>
 
@@ -132,6 +134,7 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
         // Grid entities are drawn in their own pass with the grid shader
         if (registry.has<Grid>(e)) continue;
         if (registry.has<Mirror>(e)) continue;
+        if (registry.has<SimulationDomain>(e)) continue;
         if (registry.has<Disabled>(e)) continue;
 
         auto& transform = registry.get<Transform>(e);
@@ -234,6 +237,24 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
             GL_CALL(glUniformMatrix4fv(u_grid_model, 1, GL_FALSE, model.m));
 
             const MeshGPU* mesh = mesh_manager_->bind(renderable.mesh);
+            GL_CALL(glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count));
+        }
+
+        // Simulation domain wireframe boxes
+        for (auto e : registry.view<Transform, Renderable, SimulationDomain>()) {
+            if (registry.has<Disabled>(e)) continue;
+            auto& renderable = registry.get<Renderable>(e);
+            if (renderable.mesh == 0) continue;
+            auto& transform = registry.get<Transform>(e);
+            Mat4 model = Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
+            GL_CALL(glUniformMatrix4fv(u_grid_model, 1, GL_FALSE, model.m));
+            const MeshGPU* mesh = mesh_manager_->bind(renderable.mesh);
+            static int domain_draw_count = 0;
+            if (domain_draw_count == 0) {
+                printf("[RenderSys] domain entity found, mesh=%u topology=%d verts=%d\n",
+                       renderable.mesh, (int)mesh->topology, (int)mesh->vertex_count);
+            }
+            domain_draw_count++;
             GL_CALL(glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count));
         }
 

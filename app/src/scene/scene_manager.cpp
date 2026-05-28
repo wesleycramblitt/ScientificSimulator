@@ -10,6 +10,10 @@
 #include "components/mesh_asset.hpp"
 #include "components/grid.hpp"
 #include "components/mirror.hpp"
+#include "components/fluid_domain.hpp"
+#include "components/fluid_physics.hpp"
+#include "components/fluidx3d_config.hpp"
+#include "components/simulation_status.hpp"
 
 SceneManager::SceneManager() {}
 SceneManager::~SceneManager() {}
@@ -23,7 +27,7 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     //Load entities, components into reg from scene
     Entity e = registry.create("Camera");
     registry.emplace<Camera>(e);
-    registry.emplace<Transform>(e, Vec3(0,0,5) );
+    registry.emplace<Transform>(e, Vec3(0,45,200) );  // outside domain looking in
     registry.emplace<CameraController>(e);
     //
     // Entity e2 = registry.create();
@@ -35,13 +39,24 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     // registry.emplace<Cube>(e3, 200.0f);
 
     Entity e4 = registry.create("CubeMap");
-    registry.emplace<CubeMap>(e4, "7", true);
+    registry.emplace<CubeMap>(e4, "11", true);
 
 
-    Entity e5 = registry.create("Fighter");
-    registry.emplace<MeshAsset>(e5, "assets/models/F117/F117.stl");
+    Entity e5 = registry.create("F117");
+    registry.emplace<MeshAsset>(e5, "assets/models/F117/F1172.stl");
     registry.emplace<Mirror>(e5);
-    registry.emplace<Transform>(e5, Vec3(100,0,-200), Quat(0.707,-0.707,0.0,0.0), Vec3(0.3, 0.3, 0.3));
+    registry.emplace<Transform>(e5, Vec3(0, 80, 0), Quat(1,0,0.0,0), Vec3(0.3, 0.3, 0.3));
+
+    // Simulation domain wrapping the F117 (streamwise = Y)
+    Entity simEntity = registry.create("WindTunnel");
+    registry.emplace<SimulationDomain>(simEntity, 192, 64, 64);
+    auto& solverCfg = registry.emplace<FluidX3DSolverConfig>(simEntity);
+    solverCfg.extensions = 0; // none
+    registry.emplace<FluidPhysics>(simEntity, 0.005f, 0.05f, 1, 0.0f, 0.0f, 0.0f, 0.0f);
+    auto& simInfo = registry.emplace<SimulationInfo>(simEntity);
+    simInfo.total_steps = 5000;
+    simInfo.steps_per_frame = 10;
+    registry.emplace<Transform>(simEntity, Vec3(0, 80, 0),Quat(0,0,0,1), Vec3(1,1,1));
     
     // Grid entity (follows camera)
     Entity gridEntity = registry.create("Grid");

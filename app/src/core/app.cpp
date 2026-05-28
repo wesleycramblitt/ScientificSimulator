@@ -5,7 +5,7 @@
 App::App() : isRunning_(false),
     textureManager_(), cubeMapSystem_(&meshManager_, &textureManager_), meshAssetSystem_(&meshManager_), 
     meshManager_(),  primitiveMeshSystem_(&meshManager_), renderSystem_(&textureManager_, &meshManager_),
-    gridSystem_(&meshManager_)  
+    gridSystem_(&meshManager_), fluidX3DSystem_(&meshManager_)  
 {
     if (!imguiSystem_.init(window_)) {
         std::cerr << "Failed to initialize ImGuiSystem\n";
@@ -39,6 +39,9 @@ void App::Run() {
 
         // Gizmo overlay (after 3D scene)
         gizmoSystem_.update(scene.registry, window_);
+
+        // FluidX3D simulation
+        fluidX3DSystem_.update(scene.registry, window_, 1.0f);
 
         //ImGui overlay (after 3D, before swap)
         imguiSystem_.update(scene.registry, window_);

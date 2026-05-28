@@ -21,6 +21,10 @@
 #include "components/grid.hpp"
 #include "components/collider.hpp"
 #include "components/disabled.hpp"
+#include "components/simulation_status.hpp"
+#include "components/fluidx3d_config.hpp"
+#include "components/fluid_domain.hpp"
+#include "components/fluid_physics.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -238,7 +242,21 @@ void ImGuiSystem::drawViewportInfo(const Registry& registry, const Window& windo
         ImGui::TextDisabled("Grid [G]");
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("G — toggle grid");
+        ImGui::SetTooltip("G - toggle grid");
+    }
+
+    ImGui::SameLine();
+    ImGui::TextDisabled("|");
+    ImGui::SameLine();
+
+    // -- Simulation --
+    if (window.simulation_mode) {
+        ImGui::TextColored(ImVec4(0.4f, 0.9f, 0.9f, 1.0f), "Sim [T]");
+    } else {
+        ImGui::TextDisabled("Sim [T]");
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("T - toggle simulation");
     }
 
     ImGui::SameLine();
@@ -359,6 +377,36 @@ void ImGuiSystem::drawComponentDetails(const Registry& registry) {
         ImGui::Text("Restitution:  %.2f", c.material.restitution);
         ImGui::Text("Is trigger:   %s",  c.is_trigger ? "yes" : "no");
     }
+    // SimulationDomain
+    else if (strcmp(tag, "SimulationDomain") == 0 && registry.has<SimulationDomain>(e)) {
+        auto& d = registry.get<SimulationDomain>(e);
+        ImGui::Text("Grid:  %d x %d x %d", d.nx, d.ny, d.nz);
+    }
+    // FluidPhysics
+    else if (strcmp(tag, "FluidPhysics") == 0 && registry.has<FluidPhysics>(e)) {
+        auto& p = registry.get<FluidPhysics>(e);
+        ImGui::Text("Viscosity:        %.4f", p.nu);
+        ImGui::Text("Stream velocity:  %.3f", p.streamwise_velocity);
+        ImGui::Text("Stream axis:      %u",   p.streamwise_axis);
+        ImGui::Text("Force:            %.4f, %.4f, %.4f", p.fx, p.fy, p.fz);
+        ImGui::Text("Surface tension:  %.4f", p.sigma);
+    }
+    // FluidX3DSolverConfig
+    else if (strcmp(tag, "FluidX3DSolverConfig") == 0 && registry.has<FluidX3DSolverConfig>(e)) {
+        auto& c = registry.get<FluidX3DSolverConfig>(e);
+        ImGui::Text("Velocity set:  %u", c.velocity_set);
+        ImGui::Text("Collision:     %u", c.collision);
+        ImGui::Text("Precision:     %u", c.precision);
+        ImGui::Text("Subdivisions:  %u x %u x %u", c.dx, c.dy, c.dz);
+        ImGui::Text("Extensions:    0x%X", c.extensions);
+    }
+    // SimulationInfo
+    else if (strcmp(tag, "SimulationInfo") == 0 && registry.has<SimulationInfo>(e)) {
+        auto& s = registry.get<SimulationInfo>(e);
+        ImGui::Text("Status:      %s", s.status == Running ? "Running" : s.status == Stopped ? "Stopped" : "Error");
+        ImGui::Text("Step:        %u / %u", s.current_step, s.total_steps);
+        ImGui::Text("S/frame:     %u", s.steps_per_frame);
+    }
 
     // Close button
     if (ImGui::Button("Close")) {
@@ -388,7 +436,12 @@ std::vector<const char*> ImGuiSystem::componentTags(const Registry& registry, En
     if (registry.has<Cylinder>(e))          tags.push_back("Cylinder");
     if (registry.has<Plane>(e))             tags.push_back("Plane");
     if (registry.has<Grid>(e))              tags.push_back("Grid");
-    if (registry.has<Collider>(e))          tags.push_back("Collider");
+    if (registry.has<Collider>(e))               tags.push_back("Collider");
+    if (registry.has<SimulationDomain>(e))       tags.push_back("SimulationDomain");
+    if (registry.has<FluidPhysics>(e))           tags.push_back("FluidPhysics");
+    if (registry.has<FluidX3DSolverConfig>(e))   tags.push_back("FluidX3DSolverConfig");
+    if (registry.has<SimulationInfo>(e))         tags.push_back("SimulationInfo");
+    if (registry.has<Disabled>(e))               tags.push_back("Disabled");
 
     return tags;
 }

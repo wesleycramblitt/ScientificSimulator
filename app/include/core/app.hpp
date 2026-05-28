@@ -10,6 +10,7 @@
 #include "systems/grid_system.hpp"
 #include "systems/imgui_system.hpp"
 #include "systems/gizmo_system.hpp"
+#include "systems/fluidx3d_system.hpp"
 
 class App {
     public:
@@ -32,5 +33,6 @@ class App {
         GridSystem gridSystem_;
         ImGuiSystem imguiSystem_;
         GizmoSystem gizmoSystem_;
+        FluidX3DSystem fluidX3DSystem_;
 };
 

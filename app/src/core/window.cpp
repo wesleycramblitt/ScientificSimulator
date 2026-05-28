@@ -90,6 +90,9 @@ void Window::getEvents() {
           if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_G) {
               grid_visible = !grid_visible;
           }
+          if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_T) {
+              simulation_mode = !simulation_mode;
+          }
           if (ev.type == SDL_EVENT_KEY_UP) {
               if (ev.key.scancode < SDL_SCANCODE_COUNT)
                   event_state.key_up_[ev.key.scancode] = true;
