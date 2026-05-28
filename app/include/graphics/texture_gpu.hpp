@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
 #include <cstdint>
+#include <cstring>
+#include <vector>
 #include <glad/gl.h>
 #include "common/macros.hpp"
 #include "components/cubemap.hpp"
@@ -12,41 +14,76 @@ struct TextureGPU {
     TextureGPU(CubeMap cubemap) {
         glGenTextures(1, &id);
         GL_CALL(glActiveTexture(GL_TEXTURE0));
-        GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, id)); 
-        
-        for (size_t i{}; i < 6; ++i) {
-           // load image, stbi_load?
-           unsigned char* data = stbi_load(cubemap.faces[i].name.c_str(), 
-                                           &cubemap.faces[i].width, 
-                                           &cubemap.faces[i].height,          // error handling
-                                           &cubemap.faces[i].channels,
-                                           0);
-           if (!data) {
+        GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, id));
+
+        if (cubemap.cross_layout) {
+            // Single cross-shaped image containing all 6 faces
+            int imgW, imgH, channels;
+            unsigned char* src = stbi_load(cubemap.faces[0].name.c_str(),
+                                           &imgW, &imgH, &channels, 0);
+            if (!src) {
                 glDeleteTextures(1, &id);
-                throw std::runtime_error("Failed to load cubemap face: " + cubemap.faces[i].name);
-           }
-           
-           GLenum format = (cubemap.faces[i].channels == 4) ? GL_RGBA : GL_RGB;
+                throw std::runtime_error("Failed to load cross cubemap: " + cubemap.faces[0].name);
+            }
 
-           glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-               0,  //cubemap.faces[i].mipLevels,
-               format,
-               cubemap.faces[i].width,
-               cubemap.faces[i].height,
-               0,
-               format,
-               GL_UNSIGNED_BYTE,
-               data);
+            int faceW = imgW / 4;
+            int faceH = imgH / 3;
+            GLenum fmt = (channels == 4) ? GL_RGBA : GL_RGB;
 
-           stbi_image_free(data);
-        };
+            // Face offsets in the cross layout:  { GL face, col, row }
+            struct { GLenum target; int col, row; } faces[6] = {
+                { GL_TEXTURE_CUBE_MAP_POSITIVE_X, 2, 1 },
+                { GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, 1 },
+                { GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 1, 0 },
+                { GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 1, 2 },
+                { GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 1, 1 },
+                { GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 3, 1 },
+            };
+
+            std::vector<unsigned char> faceData(faceW * faceH * channels);
+            for (int f = 0; f < 6; ++f) {
+                int ox = faces[f].col * faceW;
+                int oy = faces[f].row * faceH;
+                for (int y = 0; y < faceH; ++y) {
+                    const unsigned char* srcRow = src + ((oy + y) * imgW + ox) * channels;
+                    unsigned char* dstRow = faceData.data() + y * faceW * channels;
+                    memcpy(dstRow, srcRow, faceW * channels);
+                }
+                glTexImage2D(faces[f].target, 0, fmt,
+                             faceW, faceH, 0, fmt, GL_UNSIGNED_BYTE, faceData.data());
+            }
+            stbi_image_free(src);
+
+        } else {
+            // Six individual face files
+            for (size_t i = 0; i < 6; ++i) {
+                unsigned char* data = stbi_load(cubemap.faces[i].name.c_str(),
+                                                &cubemap.faces[i].width,
+                                                &cubemap.faces[i].height,
+                                                &cubemap.faces[i].channels,
+                                                0);
+                if (!data) {
+                    glDeleteTextures(1, &id);
+                    throw std::runtime_error("Failed to load cubemap face: " + cubemap.faces[i].name);
+                }
+
+                GLenum format = (cubemap.faces[i].channels == 4) ? GL_RGBA : GL_RGB;
+                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + (GLenum)i,
+                             0, format,
+                             cubemap.faces[i].width,
+                             cubemap.faces[i].height,
+                             0, format, GL_UNSIGNED_BYTE, data);
+
+                stbi_image_free(data);
+            }
+        }
 
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-        
+
         GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
 
     };

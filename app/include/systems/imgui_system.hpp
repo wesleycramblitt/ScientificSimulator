@@ -24,12 +24,16 @@ public:
     void update(Registry& registry, const Window& window);
 
 private:
-    void drawEntityList(const Registry& registry);
-    void drawViewportInfo(const Window& window);
+    void drawEntityList(Registry& registry);
+    void drawViewportInfo(const Registry& registry, const Window& window);
+    void drawComponentDetails(const Registry& registry);
 
     // Checks known component types for an entity, returns human-readable labels.
     static std::vector<const char*> componentTags(const Registry& registry, Entity e);
 
     bool initialized_ = false;
+
+    Entity    selected_entity_{};
+    const char* selected_tag_  = nullptr;
 };
 

@@ -35,10 +35,11 @@ struct MeshGPU {
     uint32_t layout = {};     // key for attribute setup
 
     void  upload(Mesh mesh) {
-        // std::cout << "uploading mesh: " << std::endl;
-        // for (int i{}; i < mesh.vertices.size(); ++i) { 
-        //     std::cout << mesh.vertices[i].position.x << " " <<  mesh.vertices[i].position.y  << " " <<  mesh.vertices[i].position.z << std::endl;
-        
+        switch (mesh.topology) {
+            case LINES:     topology = GL_LINES;     break;
+            case POINTS:    topology = GL_POINTS;    break;
+            default:        topology = GL_TRIANGLES; break;
+        }
 
         index_count = mesh.indices.size();
         vertex_count = mesh.vertices.size();

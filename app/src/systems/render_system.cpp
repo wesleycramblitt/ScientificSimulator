@@ -4,6 +4,9 @@
 #include "components/camera.hpp"
 #include "components/renderable.hpp"
 #include "components/cubemap.hpp"
+#include "components/grid.hpp"
+#include "components/disabled.hpp"
+#include "components/mirror.hpp"
 
 #include "core/window.hpp"
 #include "math/mat4.hpp"
@@ -78,6 +81,7 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
     GL_CALL(glUniformMatrix4fv(u_proj, 1, GL_FALSE, proj.m));
 
     for (auto e: registry.view<CubeMap, Renderable>()) {
+        if (registry.has<Disabled>(e)) continue;
         auto& cubeMap = registry.get<CubeMap>(e);
         auto& renderable = registry.get<Renderable>(e);
         
@@ -120,11 +124,16 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
     // proj.print();
     GL_CALL(glUniformMatrix4fv(u_view, 1, GL_FALSE, view.m)); 
     GL_CALL(glUniformMatrix4fv(u_proj, 1, GL_FALSE, proj.m));
-    GL_CALL(glUniform3f(u_object_color, 0.4f, 0.8f, 0.4f));
+    GL_CALL(glUniform3f(u_object_color, 0.4f, 0.4f, 0.8f));
     //downward and rotated a bit on Y
     GL_CALL(glUniform3f(u_light_dir, 0.0f, -0.866f, -0.3f));
        
     for (auto e : registry.view<Transform, Renderable>()) {
+        // Grid entities are drawn in their own pass with the grid shader
+        if (registry.has<Grid>(e)) continue;
+        if (registry.has<Mirror>(e)) continue;
+        if (registry.has<Disabled>(e)) continue;
+
         auto& transform = registry.get<Transform>(e);
         auto& renderable = registry.get<Renderable>(e);
 
@@ -150,6 +159,113 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
 
         GLenum err = glGetError();
         if (err != GL_NO_ERROR) std::cout << "GL error: " << err << "\n";
+    }
+
+    // ---- Pass 3: Reflective / mirror surfaces ----
+    {
+        uint32_t refl_program = shader_manager_.getOrLoad(
+            "reflective",
+            "shaders/reflective/reflective.vert",
+            "shaders/reflective/reflective.frag"
+        );
+        GL_CALL(glUseProgram(refl_program));
+
+        GLint u_refl_view   = glGetUniformLocation(refl_program, "u_view");
+        GLint u_refl_proj   = glGetUniformLocation(refl_program, "u_proj");
+        GLint u_refl_model  = glGetUniformLocation(refl_program, "u_model");
+        GLint u_refl_camPos = glGetUniformLocation(refl_program, "u_camPos");
+        GLint u_refl_skybox = glGetUniformLocation(refl_program, "u_skybox");
+
+        GL_CALL(glUniformMatrix4fv(u_refl_view, 1, GL_FALSE, view.m));
+        GL_CALL(glUniformMatrix4fv(u_refl_proj, 1, GL_FALSE, proj.m));
+        GL_CALL(glUniform3f(u_refl_camPos, cam_xform->position.x, cam_xform->position.y, cam_xform->position.z));
+        GL_CALL(glUniform1i(u_refl_skybox, 0));  // texture unit 0
+
+        // Bind the scene cubemap
+        for (auto cubeE : registry.view<CubeMap>()) {
+            texture_manager_->bind(registry.get<CubeMap>(cubeE).texture_handle);
+            break;
+        }
+
+        for (auto e : registry.view<Transform, Renderable, Mirror>()) {
+            if (registry.has<Disabled>(e)) continue;
+            auto& renderable = registry.get<Renderable>(e);
+            if (renderable.mesh == 0) continue;
+
+            auto& transform = registry.get<Transform>(e);
+            Mat4 model = Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
+            GL_CALL(glUniformMatrix4fv(u_refl_model, 1, GL_FALSE, model.m));
+
+            const MeshGPU* mesh = mesh_manager_->bind(renderable.mesh);
+            if (mesh->index_count > 0)
+                GL_CALL(glDrawElements(mesh->topology, (GLsizei)mesh->index_count, GL_UNSIGNED_INT, nullptr));
+            else
+                GL_CALL(glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count));
+        }
+
+        GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
+    }
+
+    // ---- Pass 4: Grid overlay (flat-color lines) ----
+    {
+        uint32_t grid_program = shader_manager_.getOrLoad(
+            "grid",
+            "shaders/grid/grid.vert",
+            "shaders/grid/grid.frag"
+        );
+        GL_CALL(glUseProgram(grid_program));
+
+        GL_CALL(glDepthFunc(GL_LEQUAL));  // draw axes on top of grid lines at same depth
+
+        GLint u_grid_view  = glGetUniformLocation(grid_program, "u_view");
+        GLint u_grid_proj  = glGetUniformLocation(grid_program, "u_proj");
+        GLint u_grid_model = glGetUniformLocation(grid_program, "u_model");
+
+        GL_CALL(glUniformMatrix4fv(u_grid_view, 1, GL_FALSE, view.m));
+        GL_CALL(glUniformMatrix4fv(u_grid_proj, 1, GL_FALSE, proj.m));
+
+        for (auto e : registry.view<Transform, Renderable, Grid>()) {
+            if (registry.has<Disabled>(e)) continue;
+            auto& renderable = registry.get<Renderable>(e);
+            if (renderable.mesh == 0) continue;
+
+            auto& transform = registry.get<Transform>(e);
+            Mat4 model = Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
+            GL_CALL(glUniformMatrix4fv(u_grid_model, 1, GL_FALSE, model.m));
+
+            const MeshGPU* mesh = mesh_manager_->bind(renderable.mesh);
+            GL_CALL(glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count));
+        }
+
+        // ---- World-origin axes (drawn directly, no entity) ----
+        if (window.grid_visible) {
+            Mat4 identity = Mat4::identity();
+            GL_CALL(glUniformMatrix4fv(u_grid_model, 1, GL_FALSE, identity.m));
+
+            static GLuint axes_vao = 0, axes_vbo = 0;
+            if (axes_vao == 0) {
+                // 6 vertices: X(red), Y(green), Z(blue), each spanning +/-5000
+                struct { float x, y, z, r, g, b; } vertices[] = {
+                    {-5000, 0, 0, 1, 0.2f, 0.2f}, {5000, 0, 0, 1, 0.2f, 0.2f},
+                    {0, -5000, 0, 0.2f, 1, 0.2f}, {0, 5000, 0, 0.2f, 1, 0.2f},
+                    {0, 0, -5000, 0.2f, 0.2f, 1}, {0, 0, 5000, 0.2f, 0.2f, 1},
+                };
+                glGenVertexArrays(1, &axes_vao);
+                glGenBuffers(1, &axes_vbo);
+                glBindVertexArray(axes_vao);
+                glBindBuffer(GL_ARRAY_BUFFER, axes_vbo);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+                glEnableVertexAttribArray(0);
+                glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+                glEnableVertexAttribArray(1);
+                glBindVertexArray(0);
+            }
+            glBindVertexArray(axes_vao);
+            glDrawArrays(GL_LINES, 0, 6);
+        }
+
+        GL_CALL(glDepthFunc(GL_LESS));  // restore
     }
 
 }

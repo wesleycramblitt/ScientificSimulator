@@ -30,14 +30,22 @@ void CubeMapSystem::update(Registry& registry, Window& window) {
 }
 
 void CubeMapSystem::setCubeMapTextures(CubeMap& cubemap) {
-    cubemap.faces = {
-        { "assets/cubemaps/"+cubemap.name+"/1.bmp" },
-        { "assets/cubemaps/"+cubemap.name+"/2.bmp" },
-        { "assets/cubemaps/"+cubemap.name+"/3.bmp" },
-        { "assets/cubemaps/"+cubemap.name+"/4.bmp" },
-        { "assets/cubemaps/"+cubemap.name+"/5.bmp" },
-        { "assets/cubemaps/"+cubemap.name+"/6.bmp" }
-    };
+    if (cubemap.cross_layout) {
+        // Single cross-shaped image
+        cubemap.faces = {
+            { "assets/cubemaps/"+cubemap.name+"/cross.png" }
+        };
+    } else {
+        // Individual face files
+        cubemap.faces = {
+            { "assets/cubemaps/"+cubemap.name+"/1.bmp" },
+            { "assets/cubemaps/"+cubemap.name+"/2.bmp" },
+            { "assets/cubemaps/"+cubemap.name+"/3.bmp" },
+            { "assets/cubemaps/"+cubemap.name+"/4.bmp" },
+            { "assets/cubemaps/"+cubemap.name+"/5.bmp" },
+            { "assets/cubemaps/"+cubemap.name+"/6.bmp" }
+        };
+    }
 }
 
 

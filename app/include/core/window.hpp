@@ -18,10 +18,12 @@ class Window {
 
         bool should_close = false;
         bool wireframe = false;
-       SDL_Window* window;
-       SDL_GLContext context;
-       EventState event_state;
-       std::vector<SDL_Event> event_buffer;
+        bool grid_visible = true;
+        bool simulation_mode = false;
+        SDL_Window* window;
+        SDL_GLContext context;
+        EventState event_state;
+        std::vector<SDL_Event> event_buffer;
 
     private:
         InputMode input_mode_ = InputMode::FPS;

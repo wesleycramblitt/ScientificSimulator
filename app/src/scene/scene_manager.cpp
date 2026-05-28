@@ -8,6 +8,8 @@
 #include "components/cubemap.hpp"
 #include "components/camera_controller.hpp"
 #include "components/mesh_asset.hpp"
+#include "components/grid.hpp"
+#include "components/mirror.hpp"
 
 SceneManager::SceneManager() {}
 SceneManager::~SceneManager() {}
@@ -33,11 +35,18 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     // registry.emplace<Cube>(e3, 200.0f);
 
     Entity e4 = registry.create("CubeMap");
-    registry.emplace<CubeMap>(e4, "Daylight");
+    registry.emplace<CubeMap>(e4, "7", true);
+
 
     Entity e5 = registry.create("Fighter");
-    registry.emplace<MeshAsset>(e5, "assets/models/fighter/fighter.obj");
+    registry.emplace<MeshAsset>(e5, "assets/models/F117/F117.stl");
+    registry.emplace<Mirror>(e5);
     registry.emplace<Transform>(e5, Vec3(100,0,-200), Quat(0.707,-0.707,0.0,0.0), Vec3(0.3, 0.3, 0.3));
+    
+    // Grid entity (follows camera)
+    Entity gridEntity = registry.create("Grid");
+    registry.emplace<Grid>(gridEntity, 10.0f, Vec3{0.6f, 0.6f, 0.6f}, Vec3{1.0f, 1.0f, 1.0f});
+    registry.emplace<Transform>(gridEntity);
     
 
 

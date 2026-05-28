@@ -68,6 +68,7 @@ void Window::getEvents() {
     SDL_PumpEvents();
 
     event_buffer.clear();
+    event_state.key_up_.fill(false);
 
     // Poll all pending events
     SDL_Event e;
@@ -83,8 +84,15 @@ void Window::getEvents() {
     for (const auto& ev : event_buffer) {
           if (ev.type == SDL_EVENT_QUIT) should_close = true;
           if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_ESCAPE) should_close = true;
-          if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_F1) {
+          if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_Z) {
               setInputMode(input_mode_ == InputMode::FPS ? InputMode::UI : InputMode::FPS);
+          }
+          if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_G) {
+              grid_visible = !grid_visible;
+          }
+          if (ev.type == SDL_EVENT_KEY_UP) {
+              if (ev.key.scancode < SDL_SCANCODE_COUNT)
+                  event_state.key_up_[ev.key.scancode] = true;
           }
           if (ev.type == SDL_EVENT_MOUSE_MOTION) {
             mouseRelX = (float)ev.motion.xrel;
