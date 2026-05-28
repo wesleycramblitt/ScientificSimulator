@@ -1,4 +1,4 @@
-#include "systems/fluentx3d_system.hpp"
+#include "systems/fluidx3d_system.hpp"
 
 // TODO? wire fluidx3d to this system, use entities to create simulation
 // Parameters for a minimum wind tunnel
@@ -27,15 +27,15 @@
 // 5. fluidx3d_initialize()
 // 6. fluidx3d_run(solver, N, N)          // runs N steps
 // 7. fluidx3d_export_vtk(U, "path.vtk")  // exports velocity field
-FluentX3DSystem::FluentX3DSystem() {
+FluidX3DSystem::FluidX3DSystem() {
 
 
 }
 
-FluentX3DSystem::start(Registry& registry, Window& window) {
+FluidX3DSystem::start(Registry& registry, Window& window) {
 
 }
 
-FluentX3DSystem::update(Registry& registry,Window& window, float dt) {
+FluidX3DSystem::update(Registry& registry,Window& window, float dt) {
 
  }
