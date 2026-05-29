@@ -14,7 +14,6 @@
 #include "math/quat.hpp"
 
 #include <glad/gl.h>
-#include <cstdio>
 #include <stdexcept>
 #include <iostream>
 
@@ -249,12 +248,6 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
             Mat4 model = Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
             GL_CALL(glUniformMatrix4fv(u_grid_model, 1, GL_FALSE, model.m));
             const MeshGPU* mesh = mesh_manager_->bind(renderable.mesh);
-            static int domain_draw_count = 0;
-            if (domain_draw_count == 0) {
-                printf("[RenderSys] domain entity found, mesh=%u topology=%d verts=%d\n",
-                       renderable.mesh, (int)mesh->topology, (int)mesh->vertex_count);
-            }
-            domain_draw_count++;
             GL_CALL(glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count));
         }
 

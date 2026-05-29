@@ -27,6 +27,7 @@ endif()
 # OpenGL: cross-platform via CMake targets
 # -------------------------
 find_package(OpenGL REQUIRED)
+find_package(OpenCL REQUIRED)
 
 add_executable(ScientificSimulator
   app/main.cpp 
@@ -68,6 +69,7 @@ target_include_directories(ScientificSimulator PRIVATE
   app/include
   external/glad/include
   external/stb_image/include
+  "${fluidx3d_cli_SOURCE_DIR}/src/OpenCL/include"
 )
 
 
@@ -114,10 +116,17 @@ target_link_libraries(ScientificSimulator PRIVATE assimp::assimp)
 
 # FluidX3D
 target_link_libraries(ScientificSimulator PRIVATE fluidx3d)
+target_link_libraries(ScientificSimulator PRIVATE OpenCL::OpenCL)
 
 # Dear ImGui
 target_link_libraries(ScientificSimulator PRIVATE imgui)
 
+target_compile_options(ScientificSimulator PRIVATE -fvisibility-inlines-hidden)
+
 add_executable(test_fluidx3d tests/test_fluidx3d.cpp)
 target_link_libraries(test_fluidx3d PRIVATE fluidx3d)
+
+add_executable(test_lbm_direct tests/test_lbm_direct.cpp)
+target_include_directories(test_lbm_direct PRIVATE app/include "${fluidx3d_cli_SOURCE_DIR}/src" "${fluidx3d_cli_SOURCE_DIR}/src/OpenCL/include")
+target_link_libraries(test_lbm_direct PRIVATE fluidx3d OpenCL::OpenCL)
 

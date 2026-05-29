@@ -1,4 +1,5 @@
 #include "graphics/mesh_manager.hpp"
+#include "graphics/mesh.hpp"
 #include <stdexcept>
 
 

@@ -11,6 +11,8 @@
 #include "systems/imgui_system.hpp"
 #include "systems/gizmo_system.hpp"
 #include "systems/fluidx3d_system.hpp"
+#include "systems/volume_render_system.hpp"
+#include "systems/particle_system.hpp"
 
 class App {
     public:
@@ -34,5 +36,7 @@ class App {
         ImGuiSystem imguiSystem_;
         GizmoSystem gizmoSystem_;
         FluidX3DSystem fluidX3DSystem_;
+        VolumeRenderSystem volumeRenderSystem_;
+        ParticleSystem particleSystem_;
 };
 

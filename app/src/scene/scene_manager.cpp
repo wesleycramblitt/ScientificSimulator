@@ -13,7 +13,10 @@
 #include "components/fluid_domain.hpp"
 #include "components/fluid_physics.hpp"
 #include "components/fluidx3d_config.hpp"
+#include "fluidx3d.h"
 #include "components/simulation_status.hpp"
+#include "components/volume_field.hpp"
+#include "components/particle_cloud.hpp"
 
 SceneManager::SceneManager() {}
 SceneManager::~SceneManager() {}
@@ -51,12 +54,14 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     Entity simEntity = registry.create("WindTunnel");
     registry.emplace<SimulationDomain>(simEntity, 192, 64, 64);
     auto& solverCfg = registry.emplace<FluidX3DSolverConfig>(simEntity);
-    solverCfg.extensions = 0; // none
+    solverCfg.extensions = FLUIDX3D_EXT_VOLUME_FORCE;
     registry.emplace<FluidPhysics>(simEntity, 0.005f, 0.05f, 1, 0.0f, 0.0f, 0.0f, 0.0f);
     auto& simInfo = registry.emplace<SimulationInfo>(simEntity);
     simInfo.total_steps = 5000;
     simInfo.steps_per_frame = 10;
     registry.emplace<Transform>(simEntity, Vec3(0, 80, 0),Quat(0,0,0,1), Vec3(1,1,1));
+    // registry.emplace<VolumeField>(simEntity);  // enable volume ray-march
+    registry.emplace<ParticleCloud>(simEntity);  // particle tracers
     
     // Grid entity (follows camera)
     Entity gridEntity = registry.create("Grid");
