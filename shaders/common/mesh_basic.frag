@@ -1,9 +1,10 @@
 #version 330 core
 
-//in vecv v_uv;
-out vec4 out_color;
+in  vec4 color;
 
-void main() {
-    // v0: constant color, later sample texture / PBR etc.
-    out_color = vec4(0.5, 0.5, 0.5, 1.0);
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = color; 
 }

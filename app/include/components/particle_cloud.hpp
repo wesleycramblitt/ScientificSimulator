@@ -5,6 +5,6 @@
 struct ParticleCloud {
     uint32_t gl_vbo = 0;       // OpenGL VBO with particle positions (x,y,z)
     uint32_t gl_vao = 0;       // VAO for rendering
-    int particle_count = 0;
+    int particle_count = 500000;
     bool initialized = false;
 };

@@ -9,10 +9,12 @@
 #include "components/camera_controller.hpp"
 #include "components/mesh_asset.hpp"
 #include "components/grid.hpp"
-#include "components/mirror.hpp"
+#include "components/render_technique_mirror.hpp"
+#include "components/render_technique_cubemap.hpp"
 #include "components/fluid_domain.hpp"
 #include "components/fluid_physics.hpp"
 #include "components/fluidx3d_config.hpp"
+#include "components/disabled.hpp"
 #include "fluidx3d.h"
 #include "components/simulation_status.hpp"
 #include "components/volume_field.hpp"
@@ -42,35 +44,35 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     // registry.emplace<Cube>(e3, 200.0f);
 
     Entity e4 = registry.create("CubeMap");
-    registry.emplace<CubeMap>(e4, "11", true);
-
+    registry.emplace<CubeMap>(e4, "15", true);
+    registry.emplace<Render_Technique_CubeMap>(e4);
+    registry.emplace<Disabled>(e4);
 
     Entity e5 = registry.create("F117");
-    registry.emplace<MeshAsset>(e5, "assets/models/F117/F1172.stl");
-    registry.emplace<Mirror>(e5);
-    registry.emplace<Transform>(e5, Vec3(0, 80, 0), Quat(1,0,0.0,0), Vec3(0.3, 0.3, 0.3));
+    registry.emplace<MeshAsset>(e5, "assets/models/F117/F117.stl");
+    registry.emplace<Render_Technique_Mirror>(e5);
+    registry.emplace<Transform>(e5, Vec3(0, 80, 0), Quat(1,0,0,0), Vec3(1, 1, 1));
 
-    // Simulation domain wrapping the F117 (streamwise = Y)
     Entity simEntity = registry.create("WindTunnel");
-    registry.emplace<SimulationDomain>(simEntity, 192, 64, 64);
+    registry.emplace<SimulationDomain>(simEntity, 344, 128, 128);
+
     auto& solverCfg = registry.emplace<FluidX3DSolverConfig>(simEntity);
     solverCfg.extensions = FLUIDX3D_EXT_VOLUME_FORCE;
     registry.emplace<FluidPhysics>(simEntity, 0.005f, 0.05f, 1, 0.0f, 0.0f, 0.0f, 0.0f);
+
     auto& simInfo = registry.emplace<SimulationInfo>(simEntity);
     simInfo.total_steps = 5000;
     simInfo.steps_per_frame = 10;
-    registry.emplace<Transform>(simEntity, Vec3(0, 80, 0),Quat(0,0,0,1), Vec3(1,1,1));
+    registry.emplace<Transform>(simEntity, Vec3(0, 80, 0),Quat(1,0,0,0), Vec3(1,1,1));
     // registry.emplace<VolumeField>(simEntity);  // enable volume ray-march
     registry.emplace<ParticleCloud>(simEntity);  // particle tracers
     
-    // Grid entity (follows camera)
+
     Entity gridEntity = registry.create("Grid");
-    registry.emplace<Grid>(gridEntity, 10.0f, Vec3{0.6f, 0.6f, 0.6f}, Vec3{1.0f, 1.0f, 1.0f});
+    registry.emplace<Grid>(gridEntity, 50.0f, Quat{0.4f, 0.4f, 0.4f, 0.4f});
     registry.emplace<Transform>(gridEntity);
-    
 
 
-    // registry.emplace<Grid>(e, 1, Vec3(0.5,0.5,0.5), Vec3(1,1,1)); 
 
     return scene;
 }

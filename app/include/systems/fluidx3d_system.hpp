@@ -30,6 +30,7 @@ private:
                       const FluidPhysics& phys,
                       SimulationInfo& info,
                       const Transform& xform);
+    void seedParticles(uint nx, uint ny, uint nz);
 
     MeshManager* meshManager_ = nullptr;
     LBM*         lbm_ = nullptr;

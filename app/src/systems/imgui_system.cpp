@@ -19,7 +19,6 @@
 #include "components/cylinder.hpp"
 #include "components/plane.hpp"
 #include "components/grid.hpp"
-#include "components/collider.hpp"
 #include "components/disabled.hpp"
 #include "components/simulation_status.hpp"
 #include "components/fluidx3d_config.hpp"
@@ -361,7 +360,6 @@ void ImGuiSystem::drawComponentDetails(const Registry& registry) {
         auto& g = registry.get<Grid>(e);
         ImGui::Text("Spacing:    %.1f", g.spacing);
         ImGui::Text("Color:      %.2f, %.2f, %.2f", g.color.x, g.color.y, g.color.z);
-        ImGui::Text("Axis color: %.2f, %.2f, %.2f", g.axisColor.x, g.axisColor.y, g.axisColor.z);
     }
     // CubeMap
     else if (strcmp(tag, "CubeMap") == 0 && registry.has<CubeMap>(e)) {
@@ -369,13 +367,6 @@ void ImGuiSystem::drawComponentDetails(const Registry& registry) {
         ImGui::Text("Name:           %s", cm.name.c_str());
         ImGui::Text("Texture handle: %u", cm.texture_handle);
         ImGui::Text("Faces:          %zu", cm.faces.size());
-    }
-    // Collider
-    else if (strcmp(tag, "Collider") == 0 && registry.has<Collider>(e)) {
-        auto& c = registry.get<Collider>(e);
-        ImGui::Text("Friction:     %.2f", c.material.friction);
-        ImGui::Text("Restitution:  %.2f", c.material.restitution);
-        ImGui::Text("Is trigger:   %s",  c.is_trigger ? "yes" : "no");
     }
     // SimulationDomain
     else if (strcmp(tag, "SimulationDomain") == 0 && registry.has<SimulationDomain>(e)) {
@@ -436,7 +427,6 @@ std::vector<const char*> ImGuiSystem::componentTags(const Registry& registry, En
     if (registry.has<Cylinder>(e))          tags.push_back("Cylinder");
     if (registry.has<Plane>(e))             tags.push_back("Plane");
     if (registry.has<Grid>(e))              tags.push_back("Grid");
-    if (registry.has<Collider>(e))               tags.push_back("Collider");
     if (registry.has<SimulationDomain>(e))       tags.push_back("SimulationDomain");
     if (registry.has<FluidPhysics>(e))           tags.push_back("FluidPhysics");
     if (registry.has<FluidX3DSolverConfig>(e))   tags.push_back("FluidX3DSolverConfig");

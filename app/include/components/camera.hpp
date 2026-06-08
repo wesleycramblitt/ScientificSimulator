@@ -16,7 +16,7 @@ struct Camera {
 
     // Common
     float near_plane = 0.05f;
-    float far_plane  = 1000.0f;
+    float far_plane  = 5000.0f;
 
     // Optional tuning
     float exposure = 1.0f;        // useful if you do HDR later

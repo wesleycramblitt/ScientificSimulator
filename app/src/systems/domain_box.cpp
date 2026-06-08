@@ -24,34 +24,33 @@ Mesh FluidX3DSystem::createDomainBox(const SimulationDomain& domain, const Trans
     const float dx = 2.0f * hx / (float)div;
     const float dy = 2.0f * hy / (float)div;
     const float dz = 2.0f * hz / (float)div;
-
-    for (int f = 0; f < 2; ++f) {
-        const float y = f ? hy : -hy;
-        for (int i = 0; i <= div; ++i) {
-            float x = -hx + (float)i * dx;
-            line(x, y, -hz, x, y, hz, gridColor);
-            float z = -hz + (float)i * dz;
-            line(-hx, y, z, hx, y, z, gridColor);
-        }
-    }
-    for (int f = 0; f < 2; ++f) {
-        const float z = f ? hz : -hz;
-        for (int i = 0; i <= div; ++i) {
-            float x = -hx + (float)i * dx;
-            line(x, -hy, z, x, hy, z, gridColor);
-            float y = -hy + (float)i * dy;
-            line(-hx, y, z, hx, y, z, gridColor);
-        }
-    }
-    for (int f = 0; f < 2; ++f) {
-        const float x = f ? hx : -hx;
-        for (int i = 0; i <= div; ++i) {
-            float y = -hy + (float)i * dy;
-            line(x, y, -hz, x, y, hz, gridColor);
-            float z = -hz + (float)i * dz;
-            line(x, -hy, z, x, hy, z, gridColor);
-        }
-    }
+    
+    //     const float y = f ? hy : -hy;
+    //     for (int i = 0; i <= div; ++i) {
+    //         float x = -hx + (float)i * dx;
+    //         line(x, y, -hz, x, y, hz, gridColor);
+    //         float z = -hz + (float)i * dz;
+    //         line(-hx, y, z, hx, y, z, gridColor);
+    //     }
+    // }
+    // for (int f = 0; f < 2; ++f) {
+    //     const float z = f ? hz : -hz;
+    //     for (int i = 0; i <= div; ++i) {
+    //         float x = -hx + (float)i * dx;
+    //         line(x, -hy, z, x, hy, z, gridColor);
+    //         float y = -hy + (float)i * dy;
+    //         line(-hx, y, z, hx, y, z, gridColor);
+    //     }
+    // }
+    // for (int f = 0; f < 2; ++f) {
+    //     const float x = f ? hx : -hx;
+    //     for (int i = 0; i <= div; ++i) {
+    //         float y = -hy + (float)i * dy;
+    //         line(x, y, -hz, x, y, hz, gridColor);
+    //         float z = -hz + (float)i * dz;
+    //         line(x, -hy, z, x, hy, z, gridColor);
+    //     }
+    // }
 
     // Outer edges
     line(-hx, -hy, -hz,  hx, -hy, -hz, edgeColor);

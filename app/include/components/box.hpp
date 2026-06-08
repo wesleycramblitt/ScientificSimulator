@@ -3,5 +3,4 @@
 
 struct Box {
     Vec3 halfExtents;
-
 };

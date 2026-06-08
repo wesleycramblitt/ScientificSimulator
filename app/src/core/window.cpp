@@ -124,7 +124,7 @@ void Window::die(const char* msg) {
 
 void Window::swapBuffers() {
     SDL_GL_SwapWindow(window);
-    glClearColor(0.1f, 0.1f, 0.1f, 1.f);
+    glClearColor(0.2f, 0.2f, 0.2f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 

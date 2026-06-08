@@ -6,7 +6,7 @@
 #include "components/cubemap.hpp"
 #include "components/grid.hpp"
 #include "components/disabled.hpp"
-#include "components/mirror.hpp"
+#include "components/render_technique_mirror.hpp"
 #include "components/fluid_domain.hpp"
 
 #include "core/window.hpp"
@@ -24,7 +24,6 @@ RenderSystem::~RenderSystem() {
 
 void RenderSystem::update(Registry& registry, const Window& window, float dt) {
 
-    // std::cout << " render system update start " << std::endl;
     Entity camera_entity{};
     Camera* cam = nullptr;
     Transform* cam_xform = nullptr;
@@ -57,13 +56,11 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
 
     Mat4 proj = Mat4::perspective(cam->fov_y_radians, aspect, cam->near_plane, cam->far_plane);
 
-
     uint32_t cubemap_program = shader_manager_.getOrLoad(
             "cubemap",
             "shaders/cubemap/cubemap.vert",
             "shaders/cubemap/cubemap.frag"
             );
-
 
     GL_CALL(glDepthFunc(GL_LEQUAL));
     GL_CALL(glDepthMask(GL_FALSE));
@@ -72,8 +69,6 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
     GL_CALL(glUseProgram(cubemap_program));
 
     const GLint u_skybox = glGetUniformLocation(cubemap_program, "u_skybox"); 
-
-    // std::cout << "u_skybox: " << u_skybox << std::endl;
 
     GLint u_view = glGetUniformLocation(cubemap_program, "u_view");
     GLint u_proj = glGetUniformLocation(cubemap_program, "u_proj");
@@ -88,12 +83,9 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
         
         if (renderable.mesh == 0) continue;
 
-        // std::cout << "about to bind textures from cubemap: "<< cubeMap.texture_handle << std::endl;
         const TextureGPU* textureGPU = texture_manager_->bind(cubeMap.texture_handle);
 
-        // std::cout << "glUiniform1i call" << std::endl;
         GL_CALL(glUniform1i(u_skybox, 0));
-        // std::cout << "bind mesh" << std::endl; 
         const MeshGPU* mesh =  mesh_manager_->bind(renderable.mesh);
        
         GL_CALL(glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count));
@@ -117,41 +109,28 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
     u_proj = glGetUniformLocation(mesh_program_, "u_proj");
     const GLint u_model =glGetUniformLocation(mesh_program_, "u_model");
     const GLint u_light_dir = glGetUniformLocation(mesh_program_, "u_light_dir");
-    const GLint u_object_color = glGetUniformLocation(mesh_program_, "u_object_color");
 
-    // std::cout << "view: " << u_view << std::endl;
-    // view.print();
-    // std::cout << "proj: " << u_proj <<  std::endl;
-    // proj.print();
     GL_CALL(glUniformMatrix4fv(u_view, 1, GL_FALSE, view.m)); 
     GL_CALL(glUniformMatrix4fv(u_proj, 1, GL_FALSE, proj.m));
-    GL_CALL(glUniform3f(u_object_color, 0.4f, 0.4f, 0.8f));
+
     //downward and rotated a bit on Y
     GL_CALL(glUniform3f(u_light_dir, 0.0f, -0.866f, -0.3f));
        
     for (auto e : registry.view<Transform, Renderable>()) {
-        // Grid entities are drawn in their own pass with the grid shader
-        if (registry.has<Grid>(e)) continue;
-        if (registry.has<Mirror>(e)) continue;
-        if (registry.has<SimulationDomain>(e)) continue;
+        if (registry.has<Render_Technique_Mirror>(e)) continue;
         if (registry.has<Disabled>(e)) continue;
 
         auto& transform = registry.get<Transform>(e);
         auto& renderable = registry.get<Renderable>(e);
 
+
         if (renderable.mesh == 0) continue;
 
         Mat4 model = Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
 
-        // std::cout << "model: " << u_model << std::endl;
-        // model.print();
-
         GL_CALL(glUniformMatrix4fv(u_model, 1, GL_FALSE, model.m));
 
-        // std::cout << "renderable mesh handle: " << renderable.mesh << std::endl;
         const MeshGPU* mesh =  mesh_manager_->bind(renderable.mesh);
-
-        //std::cout << "index count: " << mesh->index_count << std::endl;
         
         if (mesh->index_count > 0) {
             GL_CALL(glDrawElements(mesh->topology, (GLsizei)mesh->index_count, GL_UNSIGNED_INT, nullptr));
@@ -189,7 +168,7 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
             break;
         }
 
-        for (auto e : registry.view<Transform, Renderable, Mirror>()) {
+        for (auto e : registry.view<Transform, Renderable, Render_Technique_Mirror>()) {
             if (registry.has<Disabled>(e)) continue;
             auto& renderable = registry.get<Renderable>(e);
             if (renderable.mesh == 0) continue;
@@ -208,78 +187,38 @@ void RenderSystem::update(Registry& registry, const Window& window, float dt) {
         GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
     }
 
-    // ---- Pass 4: Grid overlay (flat-color lines) ----
-    {
-        uint32_t grid_program = shader_manager_.getOrLoad(
-            "grid",
-            "shaders/grid/grid.vert",
-            "shaders/grid/grid.frag"
-        );
-        GL_CALL(glUseProgram(grid_program));
 
-        GL_CALL(glDepthFunc(GL_LEQUAL));  // draw axes on top of grid lines at same depth
 
-        GLint u_grid_view  = glGetUniformLocation(grid_program, "u_view");
-        GLint u_grid_proj  = glGetUniformLocation(grid_program, "u_proj");
-        GLint u_grid_model = glGetUniformLocation(grid_program, "u_model");
 
-        GL_CALL(glUniformMatrix4fv(u_grid_view, 1, GL_FALSE, view.m));
-        GL_CALL(glUniformMatrix4fv(u_grid_proj, 1, GL_FALSE, proj.m));
-
-        for (auto e : registry.view<Transform, Renderable, Grid>()) {
-            if (registry.has<Disabled>(e)) continue;
-            auto& renderable = registry.get<Renderable>(e);
-            if (renderable.mesh == 0) continue;
-
-            auto& transform = registry.get<Transform>(e);
-            Mat4 model = Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
-            GL_CALL(glUniformMatrix4fv(u_grid_model, 1, GL_FALSE, model.m));
-
-            const MeshGPU* mesh = mesh_manager_->bind(renderable.mesh);
-            GL_CALL(glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count));
-        }
-
-        // Simulation domain wireframe boxes
-        for (auto e : registry.view<Transform, Renderable, SimulationDomain>()) {
-            if (registry.has<Disabled>(e)) continue;
-            auto& renderable = registry.get<Renderable>(e);
-            if (renderable.mesh == 0) continue;
-            auto& transform = registry.get<Transform>(e);
-            Mat4 model = Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
-            GL_CALL(glUniformMatrix4fv(u_grid_model, 1, GL_FALSE, model.m));
-            const MeshGPU* mesh = mesh_manager_->bind(renderable.mesh);
-            GL_CALL(glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count));
-        }
 
         // ---- World-origin axes (drawn directly, no entity) ----
-        if (window.grid_visible) {
-            Mat4 identity = Mat4::identity();
-            GL_CALL(glUniformMatrix4fv(u_grid_model, 1, GL_FALSE, identity.m));
-
-            static GLuint axes_vao = 0, axes_vbo = 0;
-            if (axes_vao == 0) {
-                // 6 vertices: X(red), Y(green), Z(blue), each spanning +/-5000
-                struct { float x, y, z, r, g, b; } vertices[] = {
-                    {-5000, 0, 0, 1, 0.2f, 0.2f}, {5000, 0, 0, 1, 0.2f, 0.2f},
-                    {0, -5000, 0, 0.2f, 1, 0.2f}, {0, 5000, 0, 0.2f, 1, 0.2f},
-                    {0, 0, -5000, 0.2f, 0.2f, 1}, {0, 0, 5000, 0.2f, 0.2f, 1},
-                };
-                glGenVertexArrays(1, &axes_vao);
-                glGenBuffers(1, &axes_vbo);
-                glBindVertexArray(axes_vao);
-                glBindBuffer(GL_ARRAY_BUFFER, axes_vbo);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-                glEnableVertexAttribArray(0);
-                glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-                glEnableVertexAttribArray(1);
-                glBindVertexArray(0);
-            }
-            glBindVertexArray(axes_vao);
-            glDrawArrays(GL_LINES, 0, 6);
-        }
-
-        GL_CALL(glDepthFunc(GL_LESS));  // restore
-    }
+        // if (window.grid_visible) {
+        //     Mat4 identity = Mat4::identity();
+        //     GL_CALL(glUniformMatrix4fv(u_grid_model, 1, GL_FALSE, identity.m));
+        //
+        //     static GLuint axes_vao = 0, axes_vbo = 0;
+        //     if (axes_vao == 0) {
+        //         // 6 vertices: X(red), Y(green), Z(blue), each spanning +/-5000
+        //         struct { float x, y, z, r, g, b; } vertices[] = {
+        //             {-5000, 0, 0, 1, 0.2f, 0.2f}, {5000, 0, 0, 1, 0.2f, 0.2f},
+        //             {0, -5000, 0, 0.2f, 1, 0.2f}, {0, 5000, 0, 0.2f, 1, 0.2f},
+        //             {0, 0, -5000, 0.2f, 0.2f, 1}, {0, 0, 5000, 0.2f, 0.2f, 1},
+        //         };
+        //         glGenVertexArrays(1, &axes_vao);
+        //         glGenBuffers(1, &axes_vbo);
+        //         glBindVertexArray(axes_vao);
+        //         glBindBuffer(GL_ARRAY_BUFFER, axes_vbo);
+        //         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        //         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+        //         glEnableVertexAttribArray(0);
+        //         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+        //         glEnableVertexAttribArray(1);
+        //         glBindVertexArray(0);
+        //     }
+        //     glBindVertexArray(axes_vao);
+        //     glDrawArrays(GL_LINES, 0, 6);
+        // }
+        //
+        // GL_CALL(glDepthFunc(GL_LESS));  // restore
 
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "graphics/mesh.hpp"
+#include "graphics/mesh_gpu.hpp"
 #include <unordered_map>
 
 class MeshManager {
