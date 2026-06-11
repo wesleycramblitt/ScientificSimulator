@@ -4,11 +4,19 @@
 #include <chrono>
 #include <thread>
 
+namespace exd {
+namespace core {
+
 App::App() : isRunning_(false),
-    textureManager_(), cubeMapSystem_(&meshManager_, &textureManager_), meshAssetSystem_(&meshManager_), 
-    meshManager_(),  primitiveMeshSystem_(&meshManager_), renderSystem_(&textureManager_, &meshManager_),
-    gridSystem_(&meshManager_), fluidX3DSystem_(&meshManager_),
-    volumeRenderSystem_(&meshManager_)  
+    cubeMapSystem_(graphicsContext_),
+    meshAssetSystem_(graphicsContext_),
+    primitiveMeshSystem_(graphicsContext_),
+    renderSystem_(graphicsContext_),
+    gridSystem_(graphicsContext_),
+    fluidX3DSystem_(graphicsContext_),
+    volumeRenderSystem_(graphicsContext_),
+    particleSystem_(graphicsContext_),
+    gizmoSystem_(graphicsContext_)
 {
     if (!imguiSystem_.init(window_)) {
         std::cerr << "Failed to initialize ImGuiSystem\n";
@@ -21,16 +29,21 @@ App::~App() {
 
 void App::Run() {
     const std::string sceneName = "Default";
-    Scene scene = sceneManager_.loadScene(sceneName);
+    scene::Scene scene = sceneManager_.loadScene(sceneName);
+
+    //Systems that should only run once (may change design later)
     primitiveMeshSystem_.update(scene.registry, window_);
     cubeMapSystem_.update(scene.registry, window_);
     meshAssetSystem_.update(scene.registry, window_);
     gridSystem_.update(scene.registry, window_);
 
     isRunning_ = true;
+
     using clock = std::chrono::steady_clock;
-    const auto target_frame = std::chrono::microseconds(16667); // ~60 FPS cap
+    const auto fps = 60;
+    const auto target_frame = std::chrono::microseconds(1000000 / fps); // ~60 FPS cap
     auto last_frame = clock::now();
+
     while (!window_.should_close) {
         auto frame_start = clock::now();
         float dt = std::chrono::duration<float>(frame_start - last_frame).count();
@@ -39,23 +52,22 @@ void App::Run() {
         window_.getEvents();
 
 
-        polygonModeSystem_.update(scene.registry, window_, 1);
-        gridSystem_.update(scene.registry, window_);
-        //Camera Controller System
-        cameraControllerSystem_.update(scene.registry, window_, dt);
-        //Physics System
-        //Rendering System
-        renderSystem_.update(scene.registry, window_, 1);
-        volumeRenderSystem_.update(scene.registry, window_, 1.0f);
-        particleSystem_.update(scene.registry, window_, 1.0f, fluidX3DSystem_.getLBM());
+        polygonModeSystem_.update(scene.registry, window_, dt);
 
-        // Gizmo overlay (after 3D scene)
+        gridSystem_.update(scene.registry, window_);
+
+        cameraControllerSystem_.update(scene.registry, window_, dt);
+
+        renderSystem_.update(scene.registry, window_, dt);
+
+        // volumeRenderSystem_.update(scene.registry, window_, dt);
+
+        // particleSystem_.update(scene.registry, window_, dt);
+
         gizmoSystem_.update(scene.registry, window_);
 
-        // FluidX3D simulation
-        fluidX3DSystem_.update(scene.registry, window_, 1.0f);
+        fluidX3DSystem_.update(scene.registry, window_, dt);
 
-        //ImGui overlay (after 3D, before swap)
         imguiSystem_.update(scene.registry, window_);
 
         window_.swapBuffers();
@@ -69,4 +81,5 @@ void App::Run() {
 }
 
 
-
+} // namespace core
+} // namespace exd

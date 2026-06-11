@@ -3,9 +3,15 @@
 #include <vector>
 #include <string>
 
+namespace exd {
+namespace components {
+
 struct CubeMap {
     std::string name;
     bool cross_layout = false;   // single cross-shaped image instead of 6 separate files
-    std::vector<Texture> faces;
+    std::vector<graphics::Texture> faces;
     std::uint32_t texture_handle = -1;
 };
+
+} // namespace components
+} // namespace exd

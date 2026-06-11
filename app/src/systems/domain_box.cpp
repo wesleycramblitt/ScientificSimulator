@@ -7,17 +7,20 @@
 #include "graphics/vertex.hpp"
 #include "math/vec3.hpp"
 
-Mesh FluidX3DSystem::createDomainBox(const SimulationDomain& domain, const Transform& /*xform*/) {
-    Mesh mesh;
-    mesh.topology = LINES;
+namespace exd {
+namespace systems {
+
+graphics::Mesh FluidX3DSystem::createDomainBox(const components::SimulationDomain& domain, const components::Transform& /*xform*/) {
+    graphics::Mesh mesh;
+    mesh.topology = graphics::LINES;
     const int nx = domain.nx, ny = domain.ny, nz = domain.nz;
     const float hx = (float)nx * 0.5f, hy = (float)ny * 0.5f, hz = (float)nz * 0.5f;
-    const Vec3 gridColor{0.25f, 0.65f, 0.65f};
-    const Vec3 edgeColor{0.5f, 1.0f, 1.0f};
+    const math::Vec3 gridColor{0.25f, 0.65f, 0.65f};
+    const math::Vec3 edgeColor{0.5f, 1.0f, 1.0f};
 
-    auto line = [&](float x1,float y1,float z1, float x2,float y2,float z2, const Vec3& c) {
-        mesh.vertices.push_back({Vec3{x1,y1,z1}, c});
-        mesh.vertices.push_back({Vec3{x2,y2,z2}, c});
+    auto line = [&](float x1,float y1,float z1, float x2,float y2,float z2, const math::Vec3& c) {
+        mesh.vertices.push_back({math::Vec3{x1,y1,z1}, c});
+        mesh.vertices.push_back({math::Vec3{x2,y2,z2}, c});
     };
 
     const int div = 10;
@@ -68,3 +71,6 @@ Mesh FluidX3DSystem::createDomainBox(const SimulationDomain& domain, const Trans
 
     return mesh;
 }
+
+} // namespace systems
+} // namespace exd

@@ -1,6 +1,9 @@
 #pragma once
 #include<cstdint>
 
+namespace exd {
+namespace components {
+
 struct FluidPhysics {
     float nu; //viscosity
     float streamwise_velocity; //inlet speed
@@ -8,3 +11,6 @@ struct FluidPhysics {
     float fx,fy,fz; // volume force (gravity, pressure gradient)
     float sigma; // surface tnesion (0 = single phase)
 };
+
+} // namespace components
+} // namespace exd

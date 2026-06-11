@@ -1,6 +1,12 @@
 #pragma once
 #include "math/vec3.hpp"
 
+namespace exd {
+namespace components {
+
 struct Box {
-    Vec3 halfExtents;
+    math::Vec3 halfExtents;
 };
+
+} // namespace components
+} // namespace exd

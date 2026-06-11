@@ -3,27 +3,32 @@
 #include "components/renderable.hpp"
 #include "assets/file_importer.hpp"
 
-MeshAssetSystem::MeshAssetSystem(MeshManager* _meshManager) : meshManager_(_meshManager) {}
+namespace exd {
+namespace systems {
 
-void MeshAssetSystem::update(Registry& registry, Window& window) {
+MeshAssetSystem::MeshAssetSystem(graphics::GraphicsContext& graphicsContext) : graphicsContext_(graphicsContext) {}
+
+void MeshAssetSystem::update(entities::Registry& registry, core::Window& window) {
  
-    for (auto e : registry.view<MeshAsset>()) {
-        auto mesh_asset = registry.get<MeshAsset>(e);
+    for (auto e : registry.view<components::MeshAsset>()) {
+        auto mesh_asset = registry.get<components::MeshAsset>(e);
         auto mesh = createMesh(mesh_asset);
 
         if (mesh_asset.path.size() == 0) continue;
         
-        int32_t mesh_handle = meshManager_->create(mesh);
-        registry.emplace<Renderable>(e, mesh_handle);
+        int32_t mesh_handle = graphicsContext_.mesh_manager.create(mesh);
+        registry.emplace<components::Renderable>(e, mesh_handle);
 
         
     }
 }
 
-Mesh MeshAssetSystem::createMesh(MeshAsset meshAsset)
+graphics::Mesh MeshAssetSystem::createMesh(components::MeshAsset meshAsset)
 {
-    Mesh mesh = FileImporter::loadMeshWithAssimp(meshAsset.path);
+    graphics::Mesh mesh = assets::FileImporter::loadMeshWithAssimp(meshAsset.path);
     return mesh;
 }
 
 
+} // namespace systems
+} // namespace exd

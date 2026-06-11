@@ -1,17 +1,23 @@
 #pragma once
 #include "entities/registry.hpp"
 #include "core/window.hpp"
-#include "graphics/mesh_manager.hpp"
+#include "graphics/graphics_context.hpp"
 #include "components/grid.hpp"
+
+namespace exd {
+namespace systems {
 
 class GridSystem {
 public:
-    explicit GridSystem(MeshManager* meshManager);
-    void update(Registry& registry, Window& window);
+    explicit GridSystem(graphics::GraphicsContext& graphicsContext);
+    void update(entities::Registry& registry, core::Window& window);
 
 private:
-    Mesh createMesh(const Grid& grid);
+    graphics::Mesh createMesh(const components::Grid& grid);
 
-    MeshManager* meshManager_;
+    graphics::GraphicsContext& graphicsContext_;
     uint32_t last_mesh_handle_ = 0;
 };
+
+} // namespace systems
+} // namespace exd

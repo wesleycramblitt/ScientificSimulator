@@ -5,21 +5,23 @@
 #include "components/transform.hpp"
 #include <iostream>
 
+namespace exd {
+namespace systems {
 
-void CameraControllerSystem::update(Registry& registry, Window& window, float dt) {
+void CameraControllerSystem::update(entities::Registry& registry, core::Window& window, float dt) {
 
-   if (window.getInputMode() != InputMode::FPS) return;
+   if (window.getInputMode() != common::InputMode::FPS) return;
 
    if (!window.event_state.keyboardState_) return;
     
-   Camera* camera = nullptr;
-   CameraController* cameraController = nullptr;
-   Transform* cam_xform = nullptr;
+   components::Camera* camera = nullptr;
+   components::CameraController* cameraController = nullptr;
+   components::Transform* cam_xform = nullptr;
 
-    for (auto e : registry.view<Camera, CameraController, Transform>()) {
-         camera = &registry.get<Camera>(e);
-         cameraController = &registry.get<CameraController>(e);
-         cam_xform = &registry.get<Transform>(e);
+    for (auto e : registry.view<components::Camera, components::CameraController, components::Transform>()) {
+         camera = &registry.get<components::Camera>(e);
+         cameraController = &registry.get<components::CameraController>(e);
+         cam_xform = &registry.get<components::Transform>(e);
          break;
     }
 
@@ -27,7 +29,7 @@ void CameraControllerSystem::update(Registry& registry, Window& window, float dt
 
     // std::cout << "in camera system update" << std::endl;
 
-    Vec3 worldUp{0.0f, 1.0f, 0.0f};
+    math::Vec3 worldUp{0.0f, 1.0f, 0.0f};
     float dx = -window.event_state.mouseRelX_;
     float dy = -window.event_state.mouseRelY_;
 
@@ -43,20 +45,20 @@ void CameraControllerSystem::update(Registry& registry, Window& window, float dt
     if (cameraController->yaw < -twoPi) cameraController->yaw += twoPi;
 
 
-    Quat qYaw = Quat::fromAxisAngle(worldUp, cameraController->yaw);
+    math::Quat qYaw = math::Quat::fromAxisAngle(worldUp, cameraController->yaw);
 
-    Vec3 right{1.0f, 0.0f, 0.0f};
-    Vec3 localRight = (qYaw * right).norm();  
-    Quat qPitch = Quat::fromAxisAngle(localRight, cameraController->pitch); 
+    math::Vec3 right{1.0f, 0.0f, 0.0f};
+    math::Vec3 localRight = (qYaw * right).norm();  
+    math::Quat qPitch = math::Quat::fromAxisAngle(localRight, cameraController->pitch); 
     cam_xform->rotation = (qPitch * qYaw).norm();
-    Vec3 camFwd =  (cam_xform->rotation * Vec3{0.0f, 0.0f, -1.0f}).norm();
-    Vec3 front = (camFwd - worldUp * camFwd.dot(worldUp)).norm();
-    Vec3 up    = worldUp;          
+    math::Vec3 camFwd =  (cam_xform->rotation * math::Vec3{0.0f, 0.0f, -1.0f}).norm();
+    math::Vec3 front = (camFwd - worldUp * camFwd.dot(worldUp)).norm();
+    math::Vec3 up    = worldUp;          
 
     float s = cameraController->move_speed * 
     (window.event_state.keyboardState_[SDL_SCANCODE_LSHIFT] ? cameraController->sprint_mult : 1.0f);
 
-    Vec3 move{0,0,0};
+    math::Vec3 move{0,0,0};
 
     const float step = s * dt;
     
@@ -72,3 +74,6 @@ void CameraControllerSystem::update(Registry& registry, Window& window, float dt
     window.event_state.mouseRelX_ = 0;
     window.event_state.mouseRelY_ = 0;
 }
+
+} // namespace systems
+} // namespace exd

@@ -2,6 +2,9 @@
 #include <SDL3/SDL.h>
 #include <array>
 
+namespace exd {
+namespace core {
+
 class EventState {
     public:
         EventState();
@@ -24,3 +27,6 @@ class EventState {
         friend class Window;
         std::array<bool, SDL_SCANCODE_COUNT> key_up_ = {};
 };
+
+} // namespace core
+} // namespace exd

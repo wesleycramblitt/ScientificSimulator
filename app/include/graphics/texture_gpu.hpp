@@ -9,9 +9,11 @@
 #include <stdexcept>
 #include "stb_image.h"
 
+namespace exd {
+namespace graphics {
 
 struct TextureGPU {
-    TextureGPU(CubeMap cubemap) {
+    TextureGPU(components::CubeMap cubemap) {
         glGenTextures(1, &id);
         GL_CALL(glActiveTexture(GL_TEXTURE0));
         GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, id));
@@ -109,3 +111,6 @@ struct TextureGPU {
     GLuint id;
 
 };
+
+} // namespace graphics
+} // namespace exd

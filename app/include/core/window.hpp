@@ -4,6 +4,9 @@
 #include <common/input_mode.hpp>
 #include <vector>
 
+namespace exd {
+namespace core {
+
 class Window {
     public:
         Window();
@@ -13,8 +16,8 @@ class Window {
         void getDimensions(int& width, int& height, float& aspect) const;
         void getEvents();
 
-        InputMode getInputMode() const { return input_mode_; }
-        void setInputMode(InputMode mode);
+        common::InputMode getInputMode() const { return input_mode_; }
+        void setInputMode(common::InputMode mode);
 
         bool should_close = false;
         bool wireframe = false;
@@ -26,5 +29,8 @@ class Window {
         std::vector<SDL_Event> event_buffer;
 
     private:
-        InputMode input_mode_ = InputMode::FPS;
+        common::InputMode input_mode_ = common::InputMode::FPS;
 };
+
+} // namespace core
+} // namespace exd

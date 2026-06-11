@@ -15,7 +15,10 @@
 #include <cstdio>
 #include <vector>
 
-ParticleSystem::ParticleSystem() = default;
+namespace exd {
+namespace systems {
+
+ParticleSystem::ParticleSystem(graphics::GraphicsContext& graphicsContext) : graphicsContext_(graphicsContext) {}
 
 void ParticleSystem::initGL(int particle_count) {
     glGenVertexArrays(1, &gl_vao_);
@@ -52,15 +55,15 @@ void ParticleSystem::uploadParticles(LBM* lbm, int& out_count) {
     out_count = (int)Np;
 }
 
-void ParticleSystem::update(Registry& registry, const Window& window, float /*dt*/, LBM* lbm) {
+void ParticleSystem::update(entities::Registry& registry, const core::Window& window, float /*dt*/, LBM* lbm) {
     if (!lbm) return;
 
     // Find camera
-    const Transform* cam_xform = nullptr;
-    const Camera* cam = nullptr;
-    for (auto e : registry.view<Camera, Transform>()) {
-        cam = &registry.get<Camera>(e);
-        cam_xform = &registry.get<Transform>(e);
+    const components::Transform* cam_xform = nullptr;
+    const components::Camera* cam = nullptr;
+    for (auto e : registry.view<components::Camera, components::Transform>()) {
+        cam = &registry.get<components::Camera>(e);
+        cam_xform = &registry.get<components::Transform>(e);
         break;
     }
     if (!cam || !cam_xform) return;
@@ -68,24 +71,24 @@ void ParticleSystem::update(Registry& registry, const Window& window, float /*dt
     int w, h; float aspect;
     window.getDimensions(w, h, aspect);
 
-    Vec3 forward = (cam_xform->rotation * Vec3{0.0f, 0.0f, -1.0f}).norm();
-    Vec3 up      = (cam_xform->rotation * Vec3{0.0f, 1.0f,  0.0f}).norm();
-    Mat4 view_mat = Mat4::lookAt(cam_xform->position, cam_xform->position + forward, up);
-    Mat4 proj_mat = Mat4::perspective(cam->fov_y_radians, aspect, cam->near_plane, cam->far_plane);
+    math::Vec3 forward = (cam_xform->rotation * math::Vec3{0.0f, 0.0f, -1.0f}).norm();
+    math::Vec3 up      = (cam_xform->rotation * math::Vec3{0.0f, 1.0f,  0.0f}).norm();
+    math::Mat4 view_mat = math::Mat4::lookAt(cam_xform->position, cam_xform->position + forward, up);
+    math::Mat4 proj_mat = math::Mat4::perspective(cam->fov_y_radians, aspect, cam->near_plane, cam->far_plane);
 
     // Find domain entity
-    for (auto e : registry.view<Transform, SimulationDomain, SimulationInfo>()) {
-        if (registry.has<Disabled>(e)) continue;
-        if (registry.get<SimulationInfo>(e).status != SimulationStatus::Running) continue;
+    for (auto e : registry.view<components::Transform, components::SimulationDomain, components::SimulationInfo>()) {
+        if (registry.has<components::Disabled>(e)) continue;
+        if (registry.get<components::SimulationInfo>(e).status != components::SimulationStatus::Running) continue;
 
         int count = 0;
         uploadParticles(lbm, count);
         if (count == 0) continue;
 
-        auto& xform = registry.get<Transform>(e);
-        Mat4 model = Mat4::modelTRS(xform.position, xform.rotation, xform.scale);
+        auto& xform = registry.get<components::Transform>(e);
+        math::Mat4 model = math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale);
 
-        GLuint prog = shader_manager_.getOrLoad(
+        GLuint prog = graphicsContext_.shader_manager.getOrLoad(
             "particle_points",
             "shaders/particle/particle.vert",
             "shaders/particle/particle.frag");
@@ -99,3 +102,6 @@ void ParticleSystem::update(Registry& registry, const Window& window, float /*dt
         glBindVertexArray(0);
     }
 }
+
+} // namespace systems
+} // namespace exd

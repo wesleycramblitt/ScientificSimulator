@@ -2,6 +2,9 @@
 #include "math/vec3.hpp"
 #include <ostream>
 
+namespace exd {
+namespace math {
+
 struct Quat {
     
     float w,x,y,z;
@@ -88,3 +91,6 @@ inline Vec3 operator*(const Quat& q, const Vec3& v)
 
     return result;
 }
+
+} // namespace math
+} // namespace exd

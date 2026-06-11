@@ -14,6 +14,9 @@
 #include <type_traits>
 #include <iterator>
 
+namespace exd {
+namespace entities {
+
 struct Entity {
     using id_type = std::uint32_t;
     using gen_type = std::uint32_t;
@@ -442,3 +445,6 @@ template <class... Cs>
 inline typename Registry::template View<const Cs...> Registry::view() const {
     return View<const Cs...>(*this);
 }
+
+} // namespace entities
+} // namespace exd

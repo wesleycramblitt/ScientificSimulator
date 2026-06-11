@@ -2,9 +2,15 @@
 #include "entities/registry.hpp"
 #include "core/window.hpp"
 
+namespace exd {
+namespace systems {
+
 class PolygonModeSystem {
 
     public:
-        void update(Registry& registry,Window& window, float dt);
+        void update(entities::Registry& registry, core::Window& window, float dt);
 
 };
+
+} // namespace systems
+} // namespace exd

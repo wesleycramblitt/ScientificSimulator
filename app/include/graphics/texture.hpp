@@ -4,6 +4,8 @@
 #include <glad/gl.h>
 #include "common/macros.hpp"
 
+namespace exd {
+namespace graphics {
 
 struct Texture {
     std::string name;
@@ -13,4 +15,7 @@ struct Texture {
     int channels; 
     int mipLevels = 1;
 };
+
+} // namespace graphics
+} // namespace exd
 

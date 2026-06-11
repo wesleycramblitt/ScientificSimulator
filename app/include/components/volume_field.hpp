@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
 
+namespace exd {
+namespace components {
+
 // Attached to domain entity to enable volume rendering of a solver field.
 // Shared 3D texture between OpenGL and OpenCL via clCreateFromGLTexture.
 struct VolumeField {
@@ -17,3 +20,5 @@ struct VolumeField {
     bool     interop_ready  = false;
 };
 
+} // namespace components
+} // namespace exd

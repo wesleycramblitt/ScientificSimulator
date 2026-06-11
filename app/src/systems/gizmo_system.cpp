@@ -1,13 +1,16 @@
 #include "systems/gizmo_system.hpp"
+#include "graphics/graphics_context.hpp"
 #include "components/transform.hpp"
 #include "components/camera.hpp"
 #include "components/camera_controller.hpp"
-#include "graphics/shader_manager.hpp"
 
 #include <glad/gl.h>
 #include <cmath>
 
-GizmoSystem::GizmoSystem() {
+namespace exd {
+namespace systems {
+
+GizmoSystem::GizmoSystem(graphics::GraphicsContext& graphicsContext) : graphicsContext_(graphicsContext) {
     // Static VAO: 3 coloured axes from origin, 1 unit long
     struct { float x, y, z, r, g, b; } verts[] = {
         {0,0,0, 1.0f,0.2f,0.2f}, {1,0,0, 1.0f,0.2f,0.2f},   // X red
@@ -26,7 +29,7 @@ GizmoSystem::GizmoSystem() {
     glBindVertexArray(0);
 }
 
-void GizmoSystem::update(Registry& registry, const Window& window) {
+void GizmoSystem::update(entities::Registry& registry, const core::Window& window) {
     int ww, wh; float aspect;
     window.getDimensions(ww, wh, aspect);
 
@@ -35,9 +38,9 @@ void GizmoSystem::update(Registry& registry, const Window& window) {
     gy_ = 15;   // from bottom in GL coords
 
     // Diagonal camera looking at origin
-    Vec3 eye = Vec3{1.4f, 1.1f, 1.7f}.norm() * 2.8f;
-    gizmoView_ = Mat4::lookAt(eye, Vec3{0,0,0}, Vec3{0,1,0});
-    gizmoProj_ = Mat4::perspective(0.55f, 1.0f, 0.1f, 20.0f);
+    math::Vec3 eye = math::Vec3{1.4f, 1.1f, 1.7f}.norm() * 2.8f;
+    gizmoView_ = math::Mat4::lookAt(eye, math::Vec3{0,0,0}, math::Vec3{0,1,0});
+    gizmoProj_ = math::Mat4::perspective(0.55f, 1.0f, 0.1f, 20.0f);
 
     renderAxes();
     handleClick(registry, window);
@@ -53,11 +56,10 @@ void GizmoSystem::renderAxes() const {
     glEnable(GL_SCISSOR_TEST);
     glClear(GL_DEPTH_BUFFER_BIT);
 
-    static ShaderManager shaders;
-    GLuint prog = shaders.getOrLoad("grid", "shaders/grid/grid.vert", "shaders/grid/grid.frag");
+    GLuint prog = graphicsContext_.shader_manager.getOrLoad("grid", "shaders/grid/grid.vert", "shaders/grid/grid.frag");
     glUseProgram(prog);
 
-    Mat4 I = Mat4::identity();
+    math::Mat4 I = math::Mat4::identity();
     glUniformMatrix4fv(glGetUniformLocation(prog, "u_view"),  1, GL_FALSE, gizmoView_.m);
     glUniformMatrix4fv(glGetUniformLocation(prog, "u_proj"),  1, GL_FALSE, gizmoProj_.m);
     glUniformMatrix4fv(glGetUniformLocation(prog, "u_model"), 1, GL_FALSE, I.m);
@@ -74,7 +76,7 @@ void GizmoSystem::renderAxes() const {
     glViewport(old_vp[0], old_vp[1], old_vp[2], old_vp[3]);
 }
 
-void GizmoSystem::handleClick(Registry& registry, const Window& window) {
+void GizmoSystem::handleClick(entities::Registry& registry, const core::Window& window) {
     int ww, wh; float aspect;
     window.getDimensions(ww, wh, aspect);
 
@@ -95,8 +97,8 @@ void GizmoSystem::handleClick(Registry& registry, const Window& window) {
     if (!inGizmo || !clicked) return;
 
     // Project each axis tip to screen space, find nearest to mouse
-    Mat4 vp = Mat4::mul(gizmoProj_, gizmoView_);
-    Vec3 axes[3] = { {1,0,0}, {0,1,0}, {0,0,1} };
+    math::Mat4 vp = math::Mat4::mul(gizmoProj_, gizmoView_);
+    math::Vec3 axes[3] = { {1,0,0}, {0,1,0}, {0,0,1} };
 
     int best = -1;
     float bestD2 = 32.0f * 32.0f;  // hit radius
@@ -124,16 +126,19 @@ void GizmoSystem::handleClick(Registry& registry, const Window& window) {
     if (best < 0) return;
 
     // Snap camera to face clicked axis from a distance
-    for (auto camE : registry.view<Camera, CameraController, Transform>()) {
-        auto& cc = registry.get<CameraController>(camE);
-        auto& tf = registry.get<Transform>(camE);
+    for (auto camE : registry.view<components::Camera, components::CameraController, components::Transform>()) {
+        auto& cc = registry.get<components::CameraController>(camE);
+        auto& tf = registry.get<components::Transform>(camE);
 
         float d = 15.0f;
         switch (best) {
-            case 0: tf.position = Vec3{-d, 0, 0};  cc.yaw = 1.5708f;  cc.pitch = 0;        break; // +X  ← look from -X
-            case 1: tf.position = Vec3{0, d, 0};   cc.yaw = 0;        cc.pitch = -1.5708f; break; // +Y  ← look from +Y down
-            case 2: tf.position = Vec3{0, 0, -d};  cc.yaw = 0;        cc.pitch = 0;        break; // +Z  ← look from -Z
+            case 0: tf.position = math::Vec3{-d, 0, 0};  cc.yaw = 1.5708f;  cc.pitch = 0;        break; // +X  ← look from -X
+            case 1: tf.position = math::Vec3{0, d, 0};   cc.yaw = 0;        cc.pitch = -1.5708f; break; // +Y  ← look from +Y down
+            case 2: tf.position = math::Vec3{0, 0, -d};  cc.yaw = 0;        cc.pitch = 0;        break; // +Z  ← look from -Z
         }
         break;
     }
 }
+
+} // namespace systems
+} // namespace exd

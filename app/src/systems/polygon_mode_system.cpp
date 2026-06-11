@@ -1,9 +1,10 @@
 #include "glad/gl.h"
 #include "systems/polygon_mode_system.hpp"
 
+namespace exd {
+namespace systems {
 
-
-void PolygonModeSystem::update(Registry& registry, Window& window, float dt) {
+void PolygonModeSystem::update(entities::Registry& registry, core::Window& window, float dt) {
     
     if (window.event_state.wasKeyReleased(SDL_SCANCODE_X)) {
         if (window.wireframe == false) {
@@ -20,3 +21,6 @@ void PolygonModeSystem::update(Registry& registry, Window& window, float dt) {
   
 
 }
+
+} // namespace systems
+} // namespace exd

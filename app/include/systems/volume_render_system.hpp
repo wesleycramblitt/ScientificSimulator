@@ -1,23 +1,29 @@
 #pragma once
 #include "entities/registry.hpp"
 #include "core/window.hpp"
-#include "graphics/mesh_manager.hpp"
-#include "graphics/shader_manager.hpp"
+#include "graphics/graphics_context.hpp"
 #include "math/vec3.hpp"
 
+namespace exd {
+namespace components {
 struct Transform;
+} // namespace components
+
+namespace systems {
 
 class VolumeRenderSystem {
 public:
-    explicit VolumeRenderSystem(MeshManager* meshManager);
+    explicit VolumeRenderSystem(graphics::GraphicsContext& graphicsContext);
 
-    void update(Registry& registry, const Window& window, float dt);
+    void update(entities::Registry& registry, const core::Window& window, float dt);
 
 private:
-    void createProxyCube(Registry& registry, Entity e);
-    void computeWorldBounds(const Transform& xform, int nx, int ny, int nz,
-                            Vec3& out_min, Vec3& out_max);
+    void createProxyCube(entities::Registry& registry, entities::Entity e);
+    void computeWorldBounds(const components::Transform& xform, int nx, int ny, int nz,
+                            math::Vec3& out_min, math::Vec3& out_max);
 
-    MeshManager*  meshManager_;
-    ShaderManager shaderManager_;
+    graphics::GraphicsContext& graphicsContext_;
 };
+
+} // namespace systems
+} // namespace exd

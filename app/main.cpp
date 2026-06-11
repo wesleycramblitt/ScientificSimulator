@@ -5,7 +5,7 @@
 #include "stb_image.h"
 
 int main() {
-    App app;
+    exd::core::App app;
     app.Run(); 
 
     return 0;

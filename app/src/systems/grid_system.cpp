@@ -5,38 +5,44 @@
 #include "graphics/vertex.hpp"
 #include "math/vec3.hpp"
 
-GridSystem::GridSystem(MeshManager* meshManager) : meshManager_(meshManager) {}
+namespace exd {
+namespace systems {
 
-void GridSystem::update(Registry& registry, Window& window) {
-    for (auto e : registry.view<Grid, Transform>()) {
-        if (registry.has<Disabled>(e)) continue;
+GridSystem::GridSystem(graphics::GraphicsContext& graphicsContext) : graphicsContext_(graphicsContext) {}
 
-        if (window.grid_visible && !registry.has<Renderable>(e)) {
-            Mesh mesh = createMesh(registry.get<Grid>(e));
-            uint32_t handle = meshManager_->create(mesh);
-            registry.emplace<Renderable>(e, handle);
-        } else if (!window.grid_visible && registry.has<Renderable>(e)) {
-            registry.remove<Renderable>(e);
+void GridSystem::update(entities::Registry& registry, core::Window& window) {
+    for (auto e : registry.view<components::Grid, components::Transform>()) {
+        if (registry.has<components::Disabled>(e)) continue;
+
+        if (window.grid_visible && !registry.has<components::Renderable>(e)) {
+            graphics::Mesh mesh = createMesh(registry.get<components::Grid>(e));
+            uint32_t handle = graphicsContext_.mesh_manager.create(mesh);
+            registry.emplace<components::Renderable>(e, handle);
+        } else if (!window.grid_visible && registry.has<components::Renderable>(e)) {
+            registry.remove<components::Renderable>(e);
         }
     }
 }
 
-Mesh GridSystem::createMesh(const Grid& grid) {
-    Mesh mesh;
-    mesh.topology = LINES;
+graphics::Mesh GridSystem::createMesh(const components::Grid& grid) {
+    graphics::Mesh mesh;
+    mesh.topology = graphics::LINES;
 
     const float s = grid.spacing > 0.0f ? grid.spacing : 1.0f;
-    const int    N = 100;
+    const int    N = 10;
     const float extent = N * s;
 
     for (int i = -N; i <= N; ++i) {
         const float coord = i * s;
         
-        mesh.vertices.push_back(Vertex{.position = Vec3{-extent, 0.0f, coord}, .color=grid.color });
-        mesh.vertices.push_back(Vertex{.position = Vec3{+extent, 0.0f, coord}, .color=grid.color });
-        mesh.vertices.push_back(Vertex{.position = Vec3{coord, 0.0f, -extent}, .color=grid.color });
-        mesh.vertices.push_back(Vertex{.position = Vec3{coord, 0.0f, +extent}, .color=grid.color });
+        mesh.vertices.push_back(graphics::Vertex{.position = math::Vec3{-extent, 0.0f, coord}, .color=grid.color });
+        mesh.vertices.push_back(graphics::Vertex{.position = math::Vec3{+extent, 0.0f, coord}, .color=grid.color });
+        mesh.vertices.push_back(graphics::Vertex{.position = math::Vec3{coord, 0.0f, -extent}, .color=grid.color });
+        mesh.vertices.push_back(graphics::Vertex{.position = math::Vec3{coord, 0.0f, +extent}, .color=grid.color });
     }
 
     return mesh;
 }
+
+} // namespace systems
+} // namespace exd

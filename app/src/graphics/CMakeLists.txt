@@ -3,4 +3,8 @@ file(GLOB MODULE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_LIST_DIR}/*.cpp"
 )
 
-target_sources(ScientificSimulator PRIVATE ${MODULE_SOURCES})
+file(GLOB RENDER_TECHNIQUE_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/render_techniques/*.cpp"
+)
+
+target_sources(ScientificSimulator PRIVATE ${MODULE_SOURCES} ${RENDER_TECHNIQUE_SOURCES})

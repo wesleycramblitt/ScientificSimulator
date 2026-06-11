@@ -4,9 +4,14 @@
 #include <assimp/postprocess.h>
 #include "graphics/mesh.hpp"
 
+namespace exd {
+namespace assets {
 
 class FileImporter {
     public:
-        static Mesh loadMeshWithAssimp(const std::string& path); 
+        static graphics::Mesh loadMeshWithAssimp(const std::string& path); 
 };
+
+} // namespace assets
+} // namespace exd
 

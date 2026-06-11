@@ -1,19 +1,21 @@
 #pragma once
 #include "entities/registry.hpp"
 #include "core/window.hpp"
-#include "graphics/shader_manager.hpp"
-#include "graphics/mesh_manager.hpp"
-#include "graphics/texture_manager.hpp"
+#include "graphics/graphics_context.hpp"
+
+namespace exd {
+namespace systems {
 
 class RenderSystem {
 public:
-    RenderSystem(TextureManager* textureManager, MeshManager* meshManager);
+    RenderSystem(graphics::GraphicsContext& graphicsContext);
     ~RenderSystem();
 
-    void update(Registry& registry, const Window& window, float dt);
+    void update(entities::Registry& registry, const core::Window& window, float dt);
 
 private:
-    ShaderManager shader_manager_;
-    MeshManager*  mesh_manager_;
-    TextureManager* texture_manager_;
+    graphics::GraphicsContext& graphics_context_;
 };
+
+} // namespace systems
+} // namespace exd

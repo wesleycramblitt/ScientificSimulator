@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include "common/macros.hpp"
 
+namespace exd {
+namespace graphics {
 
 ShaderManager::~ShaderManager() {
     destroyAll();
@@ -107,3 +109,5 @@ GLuint ShaderManager::linkProgram(GLuint vs, GLuint fs, const std::string& debug
     return p;
 }
 
+} // namespace graphics
+} // namespace exd

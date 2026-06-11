@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
 
+namespace exd {
+namespace components {
+
 // Particle tracer cloud attached to domain entity
 struct ParticleCloud {
     uint32_t gl_vbo = 0;       // OpenGL VBO with particle positions (x,y,z)
@@ -8,3 +11,6 @@ struct ParticleCloud {
     int particle_count = 500000;
     bool initialized = false;
 };
+
+} // namespace components
+} // namespace exd

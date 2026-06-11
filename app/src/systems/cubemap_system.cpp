@@ -3,33 +3,32 @@
 #include "core/window.hpp"
 #include "components/renderable.hpp"
 
+namespace exd {
+namespace systems {
 
-CubeMapSystem::CubeMapSystem(MeshManager* _meshManager, TextureManager* _textureManager) :
-    meshManager_(_meshManager), textureManager_(_textureManager) {}
+CubeMapSystem::CubeMapSystem(graphics::GraphicsContext& graphicsContext) :
+    graphicsContext_(graphicsContext){}
 
-void CubeMapSystem::update(Registry& registry, Window& window) {
+void CubeMapSystem::update(entities::Registry& registry, core::Window& window) {
  
-    for (auto e : registry.view<CubeMap>()) {
-        auto& cube = registry.get<CubeMap>(e);
+    for (auto e : registry.view<components::CubeMap>()) {
+        auto& cube = registry.get<components::CubeMap>(e);
 
         setCubeMapTextures(cube);
 
-        std::cout << " uploading cubemap textures... " << std::endl;
-        cube.texture_handle = textureManager_->uploadToGPU(cube); 
+        cube.texture_handle = graphicsContext_.texture_manager.uploadToGPU(cube); 
 
         auto mesh = createMesh(cube);
         
-        std::cout << "upload cubemap mesh" << std:: endl;
-        int32_t mesh_handle = meshManager_->create(mesh);
+        int32_t mesh_handle = graphicsContext_.mesh_manager.create(mesh);
 
-        registry.emplace<Renderable>(e, mesh_handle);
+        registry.emplace<components::Renderable>(e, mesh_handle);
 
-        std::cout << "done with cube map syste." << std::endl;
         
     }
 }
 
-void CubeMapSystem::setCubeMapTextures(CubeMap& cubemap) {
+void CubeMapSystem::setCubeMapTextures(components::CubeMap& cubemap) {
     if (cubemap.cross_layout) {
         // Single cross-shaped image
         cubemap.faces = {
@@ -49,9 +48,9 @@ void CubeMapSystem::setCubeMapTextures(CubeMap& cubemap) {
 }
 
 
-Mesh CubeMapSystem::createMesh(CubeMap cubemap)
+graphics::Mesh CubeMapSystem::createMesh(components::CubeMap cubemap)
 {
-    Mesh mesh;
+    graphics::Mesh mesh;
 
     float vertices[] = {
         // positions
@@ -102,7 +101,7 @@ Mesh CubeMapSystem::createMesh(CubeMap cubemap)
     constexpr std::size_t stride = 3;
     constexpr std::size_t count = sizeof(vertices) / sizeof(float);
     for (std::size_t i{}; i < count; i+= stride) {
-        Vertex v;
+        graphics::Vertex v;
         v.position = { vertices[i + 0], vertices[i+1], vertices[i+2] } ;
         mesh.vertices.push_back(v);
     }
@@ -110,3 +109,5 @@ Mesh CubeMapSystem::createMesh(CubeMap cubemap)
     return mesh;
 }
 
+} // namespace systems
+} // namespace exd

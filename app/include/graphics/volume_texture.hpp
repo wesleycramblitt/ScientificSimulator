@@ -5,11 +5,14 @@
 #include <cmath>
 #include <glad/gl.h>
 
+namespace exd {
+namespace graphics {
+
 // Helper for 3D volume texture operations.
 // Keeps GL code out of solver systems — just pass raw float data.
 struct VolumeTexture {
     // Create a 3D R32F texture. Call once.
-    static void create(VolumeField& vf, int nx, int ny, int nz) {
+    static void create(components::VolumeField& vf, int nx, int ny, int nz) {
         glGenTextures(1, &vf.gl_tex);
         glBindTexture(GL_TEXTURE_3D, vf.gl_tex);
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -26,7 +29,7 @@ struct VolumeTexture {
     }
 
     // Upload scalar data.  data[i] = value at grid cell i.
-    static void upload(VolumeField& vf, int nx, int ny, int nz,
+    static void upload(components::VolumeField& vf, int nx, int ny, int nz,
                        const float* data) {
         glBindTexture(GL_TEXTURE_3D, vf.gl_tex);
         glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, nx, ny, nz,
@@ -34,3 +37,6 @@ struct VolumeTexture {
         glBindTexture(GL_TEXTURE_3D, 0);
     }
 };
+
+} // namespace graphics
+} // namespace exd

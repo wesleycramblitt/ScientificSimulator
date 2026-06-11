@@ -5,34 +5,37 @@
 #include <glad/gl.h>
 #include "core/event_state.hpp"
 
-Window::Window() { 
+namespace exd {
+namespace core {
+
+Window::Window() {
     // initialize sDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         // Handle error
         std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
         return;
     }
-    
+
     // Set OpenGL attributes
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24); 
-    
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+
     // Create window
     window = SDL_CreateWindow(
         "Scientific Simulator",
         1280, 720,
         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
     );
-    
+
     if (!window) {
         // Handle error
         std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         return;
     }
-    
+
     // Create OpenGL context
     context = SDL_GL_CreateContext(window);
     if (!context) {
@@ -42,7 +45,7 @@ Window::Window() {
     }
 
     SDL_GL_MakeCurrent(window, context);
-    
+
     // Initialize OpenGL loader (like glad or glad2)
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
         // Handle error
@@ -52,7 +55,7 @@ Window::Window() {
         SDL_Quit();
         return;
     }
-    
+
     // Set up OpenGL state
     GL_CALL(glEnable(GL_DEPTH_TEST));
     GL_CALL(glEnable(GL_CULL_FACE));
@@ -60,7 +63,7 @@ Window::Window() {
     GL_CALL(glViewport(0,0, 1280, 720));
 
     SDL_SetWindowRelativeMouseMode(window, true);
-    setInputMode(InputMode::FPS);
+    setInputMode(common::InputMode::FPS);
 }
 
 
@@ -85,7 +88,7 @@ void Window::getEvents() {
           if (ev.type == SDL_EVENT_QUIT) should_close = true;
           if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_ESCAPE) should_close = true;
           if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_Z) {
-              setInputMode(input_mode_ == InputMode::FPS ? InputMode::UI : InputMode::FPS);
+              setInputMode(input_mode_ == common::InputMode::FPS ? common::InputMode::UI : common::InputMode::FPS);
           }
           if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_G) {
               grid_visible = !grid_visible;
@@ -129,14 +132,17 @@ void Window::swapBuffers() {
     glEnable(GL_DEPTH_TEST);
 
 
-} 
+}
 
 void Window::getDimensions(int& _width, int& _height, float& _aspect) const{
     SDL_GetWindowSize(window, &_width, &_height);
     _aspect = (_height > 0) ? (float)_width / (float)_height : 1.0f;
 }
 
-void Window::setInputMode(InputMode mode) {
+void Window::setInputMode(common::InputMode mode) {
     input_mode_ = mode;
-    SDL_SetWindowRelativeMouseMode(window, mode == InputMode::FPS);
+    SDL_SetWindowRelativeMouseMode(window, mode == common::InputMode::FPS);
 }
+
+} // namespace core
+} // namespace exd

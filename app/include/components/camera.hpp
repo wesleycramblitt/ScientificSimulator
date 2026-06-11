@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
 
+namespace exd {
+namespace components {
+
 enum ProjectionType : uint8_t {
     Perspective,
     Orthographic
@@ -21,3 +24,6 @@ struct Camera {
     // Optional tuning
     float exposure = 1.0f;        // useful if you do HDR later
 };
+
+} // namespace components
+} // namespace exd

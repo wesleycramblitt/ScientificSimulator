@@ -14,6 +14,9 @@
 #include "systems/volume_render_system.hpp"
 #include "systems/particle_system.hpp"
 
+namespace exd {
+namespace core {
+
 class App {
     public:
         App();
@@ -23,20 +26,24 @@ class App {
     private:
         bool isRunning_;
         Window window_;
-        SceneManager sceneManager_;
-        MeshManager meshManager_;
-        TextureManager textureManager_;
-        RenderSystem renderSystem_;
-        PrimitiveMeshSystem primitiveMeshSystem_;
-        CameraControllerSystem cameraControllerSystem_;
-        PolygonModeSystem polygonModeSystem_;
-        CubeMapSystem cubeMapSystem_;
-        MeshAssetSystem meshAssetSystem_;
-        GridSystem gridSystem_;
-        ImGuiSystem imguiSystem_;
-        GizmoSystem gizmoSystem_;
-        FluidX3DSystem fluidX3DSystem_;
-        VolumeRenderSystem volumeRenderSystem_;
-        ParticleSystem particleSystem_;
+
+        graphics::GraphicsContext graphicsContext_;
+        scene::SceneManager sceneManager_;
+
+        systems::RenderSystem renderSystem_;
+        systems::PrimitiveMeshSystem primitiveMeshSystem_;
+        systems::CameraControllerSystem cameraControllerSystem_;
+        systems::PolygonModeSystem polygonModeSystem_;
+        systems::CubeMapSystem cubeMapSystem_;
+        systems::MeshAssetSystem meshAssetSystem_;
+        systems::GridSystem gridSystem_;
+        systems::ImGuiSystem imguiSystem_;
+        systems::GizmoSystem gizmoSystem_;
+        systems::FluidX3DSystem fluidX3DSystem_;
+        systems::VolumeRenderSystem volumeRenderSystem_;
+        systems::ParticleSystem particleSystem_;
 };
+
+} // namespace core
+} // namespace exd
 

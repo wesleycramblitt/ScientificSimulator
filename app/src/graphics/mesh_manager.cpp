@@ -1,6 +1,8 @@
 #include "graphics/mesh_manager.hpp"
 #include <stdexcept>
 
+namespace exd {
+namespace graphics {
 
 const uint32_t MeshManager::create(const Mesh& mesh) {
     //save data from mesh and return a handle representing it
@@ -15,7 +17,7 @@ const uint32_t MeshManager::uploadToGPU(const Mesh& mesh) {
    uint32_t id = meshgpu_map_.size()+1;
    meshgpu_map_.try_emplace(id, mesh);
 
-   return id; 
+   return id;
 }
 
 const uint32_t MeshManager::load(uint32_t asset_handle) {
@@ -35,3 +37,6 @@ const MeshGPU* MeshManager::bind(const uint32_t mesh_handle) {
 
     return meshGPU;
 }
+
+} // namespace graphics
+} // namespace exd

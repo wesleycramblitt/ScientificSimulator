@@ -2,9 +2,12 @@
 #include <string>
 #include "entities/registry.hpp"
 
+namespace exd {
+namespace scene {
+
 struct Scene {
     std::string name;
-    Registry registry;
+    entities::Registry registry;
 };
 
 class SceneManager {
@@ -15,3 +18,6 @@ class SceneManager {
         Scene loadScene(const std::string& name);
 
 };
+
+} // namespace scene
+} // namespace exd

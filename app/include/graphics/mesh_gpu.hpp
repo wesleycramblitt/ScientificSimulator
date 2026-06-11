@@ -7,13 +7,15 @@
 #include <cstddef>
 #include <iostream>
 
+namespace exd {
+namespace graphics {
 
 struct MeshGPU {
     MeshGPU(const Mesh& _mesh) { generateArraysAndBuffers(); upload(_mesh); }
     
     ~MeshGPU() { 
-        std::cout << "MeshGPU destroy" << std::endl;
-        destroy(); }
+        destroy();
+    }
     MeshGPU(const MeshGPU&) = delete;
     MeshGPU& operator=(const MeshGPU&) = delete;
 
@@ -126,3 +128,6 @@ struct MeshGPU {
         if (vao) glDeleteVertexArrays(1, &vao), vao = 0;
     }
 };
+
+} // namespace graphics
+} // namespace exd

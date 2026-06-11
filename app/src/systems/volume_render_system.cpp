@@ -16,37 +16,40 @@
 #include <cstdio>
 #include <algorithm>
 
-VolumeRenderSystem::VolumeRenderSystem(MeshManager* meshManager)
-    : meshManager_(meshManager)
+namespace exd {
+namespace systems {
+
+VolumeRenderSystem::VolumeRenderSystem(graphics::GraphicsContext& graphicsContext)
+    : graphicsContext_(graphicsContext)
 {}
 
 // ---------------------------------------------------------------------------
 // Compute world-space AABB of the simulation domain
 // ---------------------------------------------------------------------------
-void VolumeRenderSystem::computeWorldBounds(const Transform& xform,
+void VolumeRenderSystem::computeWorldBounds(const components::Transform& xform,
                                             int nx, int ny, int nz,
-                                            Vec3& out_min, Vec3& out_max) {
+                                            math::Vec3& out_min, math::Vec3& out_max) {
     const float hx = (float)nx * 0.5f;
     const float hy = (float)ny * 0.5f;
     const float hz = (float)nz * 0.5f;
 
     // 8 corners of the domain in grid-space
-    const Vec3 corners[8] = {
-        Vec3{-hx, -hy, -hz}, Vec3{ hx, -hy, -hz},
-        Vec3{-hx,  hy, -hz}, Vec3{ hx,  hy, -hz},
-        Vec3{-hx, -hy,  hz}, Vec3{ hx, -hy,  hz},
-        Vec3{-hx,  hy,  hz}, Vec3{ hx,  hy,  hz},
+    const math::Vec3 corners[8] = {
+        math::Vec3{-hx, -hy, -hz}, math::Vec3{ hx, -hy, -hz},
+        math::Vec3{-hx,  hy, -hz}, math::Vec3{ hx,  hy, -hz},
+        math::Vec3{-hx, -hy,  hz}, math::Vec3{ hx, -hy,  hz},
+        math::Vec3{-hx,  hy,  hz}, math::Vec3{ hx,  hy,  hz},
     };
 
     // Transform to world-space and find min/max
-    out_min = Vec3{ 1e30f, 1e30f, 1e30f};
-    out_max = Vec3{-1e30f,-1e30f,-1e30f};
+    out_min = math::Vec3{ 1e30f, 1e30f, 1e30f};
+    out_max = math::Vec3{-1e30f,-1e30f,-1e30f};
     for (const auto& c : corners) {
         // Apply TRS manually
-        Vec3 rotated = xform.rotation * Vec3{c.x * xform.scale.x,
+        math::Vec3 rotated = xform.rotation * math::Vec3{c.x * xform.scale.x,
                                               c.y * xform.scale.y,
                                               c.z * xform.scale.z};
-        Vec3 world = Vec3{rotated.x + xform.position.x,
+        math::Vec3 world = math::Vec3{rotated.x + xform.position.x,
                           rotated.y + xform.position.y,
                           rotated.z + xform.position.z};
         out_min.x = std::min(out_min.x, world.x);
@@ -63,26 +66,26 @@ void VolumeRenderSystem::computeWorldBounds(const Transform& xform,
 // The cube matches the domain's grid-space bounds so the TRS model matrix
 // places it correctly in world-space.
 // ---------------------------------------------------------------------------
-void VolumeRenderSystem::createProxyCube(Registry& registry, Entity e) {
-    auto& domain = registry.get<SimulationDomain>(e);
+void VolumeRenderSystem::createProxyCube(entities::Registry& registry, entities::Entity e) {
+    auto& domain = registry.get<components::SimulationDomain>(e);
     const float hx = (float)domain.nx * 0.5f;
     const float hy = (float)domain.ny * 0.5f;
     const float hz = (float)domain.nz * 0.5f;
 
-    Mesh mesh;
-    mesh.topology = TRIANGLES;
+    graphics::Mesh mesh;
+    mesh.topology = graphics::TRIANGLES;
 
     // 8 corner positions
-    const Vec3 p[8] = {
+    const math::Vec3 p[8] = {
         {-hx, -hy, -hz}, { hx, -hy, -hz}, { hx,  hy, -hz}, {-hx,  hy, -hz},
         {-hx, -hy,  hz}, { hx, -hy,  hz}, { hx,  hy,  hz}, {-hx,  hy,  hz},
     };
 
     // 6 faces, 2 triangles each, CCW winding for GL_CULL_FACE
     auto tri = [&](int a, int b, int c) {
-        Vec3 u = Vec3{p[b].x-p[a].x, p[b].y-p[a].y, p[b].z-p[a].z};
-        Vec3 v = Vec3{p[c].x-p[a].x, p[c].y-p[a].y, p[c].z-p[a].z};
-        Vec3 n{u.y*v.z - u.z*v.y, u.z*v.x - u.x*v.z, u.x*v.y - u.y*v.x};
+        math::Vec3 u = math::Vec3{p[b].x-p[a].x, p[b].y-p[a].y, p[b].z-p[a].z};
+        math::Vec3 v = math::Vec3{p[c].x-p[a].x, p[c].y-p[a].y, p[c].z-p[a].z};
+        math::Vec3 n{u.y*v.z - u.z*v.y, u.z*v.x - u.x*v.z, u.x*v.y - u.y*v.x};
         // Normal is unused by ray-march shader but needed for valid Vertex
         mesh.vertices.push_back({p[a], n});
         mesh.vertices.push_back({p[b], n});
@@ -97,20 +100,20 @@ void VolumeRenderSystem::createProxyCube(Registry& registry, Entity e) {
     tri(7, 6, 2); tri(7, 2, 3);  // +Y
     tri(0, 1, 5); tri(0, 5, 4);  // -Y
 
-    uint32_t handle = meshManager_->create(mesh);
-    registry.emplace<VolumeRenderable>(e, handle);
+    uint32_t handle = graphicsContext_.mesh_manager.create(mesh);
+    registry.emplace<components::VolumeRenderable>(e, handle);
 }
 
 // ---------------------------------------------------------------------------
 // Per-frame update
 // ---------------------------------------------------------------------------
-void VolumeRenderSystem::update(Registry& registry, const Window& window, float /*dt*/) {
+void VolumeRenderSystem::update(entities::Registry& registry, const core::Window& window, float /*dt*/) {
     // --- Find camera ---
-    const Transform* cam_xform = nullptr;
-    const Camera* cam = nullptr;
-    for (auto e : registry.view<Camera, Transform>()) {
-        cam = &registry.get<Camera>(e);
-        cam_xform = &registry.get<Transform>(e);
+    const components::Transform* cam_xform = nullptr;
+    const components::Camera* cam = nullptr;
+    for (auto e : registry.view<components::Camera, components::Transform>()) {
+        cam = &registry.get<components::Camera>(e);
+        cam_xform = &registry.get<components::Transform>(e);
         break;
     }
     if (!cam || !cam_xform) return;
@@ -118,29 +121,29 @@ void VolumeRenderSystem::update(Registry& registry, const Window& window, float 
     int width, height; float aspect;
     window.getDimensions(width, height, aspect);
 
-    Vec3 forward = (cam_xform->rotation * Vec3{0.0f, 0.0f, -1.0f}).norm();
-    Vec3 up      = (cam_xform->rotation * Vec3{0.0f, 1.0f,  0.0f}).norm();
-    Mat4 view = Mat4::lookAt(cam_xform->position,
+    math::Vec3 forward = (cam_xform->rotation * math::Vec3{0.0f, 0.0f, -1.0f}).norm();
+    math::Vec3 up      = (cam_xform->rotation * math::Vec3{0.0f, 1.0f,  0.0f}).norm();
+    math::Mat4 view = math::Mat4::lookAt(cam_xform->position,
                              cam_xform->position + forward, up);
-    Mat4 proj = Mat4::perspective(cam->fov_y_radians, aspect,
+    math::Mat4 proj = math::Mat4::perspective(cam->fov_y_radians, aspect,
                                    cam->near_plane, cam->far_plane);
 
         // --- Volume entities ---
-        for (auto e : registry.view<Transform, VolumeField, SimulationDomain>()) {
-            if (registry.has<Disabled>(e)) continue;
+        for (auto e : registry.view<components::Transform, components::VolumeField, components::SimulationDomain>()) {
+            if (registry.has<components::Disabled>(e)) continue;
 
-            auto& transform = registry.get<Transform>(e);
-            auto& vol       = registry.get<VolumeField>(e);
-            auto& domain    = registry.get<SimulationDomain>(e);
+            auto& transform = registry.get<components::Transform>(e);
+            auto& vol       = registry.get<components::VolumeField>(e);
+            auto& domain    = registry.get<components::SimulationDomain>(e);
 
         if (!vol.interop_ready || vol.gl_tex == 0)
             continue;
 
             // Lazy-create proxy cube mesh
-            if (!registry.has<VolumeRenderable>(e))
+            if (!registry.has<components::VolumeRenderable>(e))
                 createProxyCube(registry, e);
 
-            auto& vr = registry.get<VolumeRenderable>(e);
+            auto& vr = registry.get<components::VolumeRenderable>(e);
             if (vr.mesh == 0) continue;
 
             static bool once = false;
@@ -151,13 +154,13 @@ void VolumeRenderSystem::update(Registry& registry, const Window& window, float 
             }
 
         // Compute world-space bounds
-        Vec3 box_min, box_max;
+        math::Vec3 box_min, box_max;
         computeWorldBounds(transform, domain.nx, domain.ny, domain.nz,
                            box_min, box_max);
 
         // --- Shader ---
         static bool shader_loaded = false;
-        GLuint prog = shaderManager_.getOrLoad(
+        GLuint prog = graphicsContext_.shader_manager.getOrLoad(
             "volume_ray",
             "shaders/volume/ray_march.vert",
             "shaders/volume/ray_march.frag");
@@ -167,7 +170,7 @@ void VolumeRenderSystem::update(Registry& registry, const Window& window, float 
         }
         glUseProgram(prog);
 
-        Mat4 model = Mat4::modelTRS(transform.position, transform.rotation,
+        math::Mat4 model = math::Mat4::modelTRS(transform.position, transform.rotation,
                                     transform.scale);
 
         glUniformMatrix4fv(glGetUniformLocation(prog, "u_model"), 1, GL_FALSE, model.m);
@@ -193,7 +196,7 @@ void VolumeRenderSystem::update(Registry& registry, const Window& window, float 
         glEnable(GL_CULL_FACE);
         glCullFace(GL_FRONT);  // render back faces so camera-inside works
 
-        const MeshGPU* mesh = meshManager_->bind(vr.mesh);
+        const graphics::MeshGPU* mesh = graphicsContext_.mesh_manager.bind(vr.mesh);
         glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count);
 
         glCullFace(GL_BACK);
@@ -201,15 +204,15 @@ void VolumeRenderSystem::update(Registry& registry, const Window& window, float 
     }
 
     // ── Particle pass ──
-    for (auto e : registry.view<Transform, ParticleCloud, SimulationDomain>()) {
-        if (registry.has<Disabled>(e)) continue;
-        auto& pc = registry.get<ParticleCloud>(e);
+    for (auto e : registry.view<components::Transform, components::ParticleCloud, components::SimulationDomain>()) {
+        if (registry.has<components::Disabled>(e)) continue;
+        auto& pc = registry.get<components::ParticleCloud>(e);
         if (!pc.initialized || pc.particle_count == 0) continue;
-        auto& transform = registry.get<Transform>(e);
+        auto& transform = registry.get<components::Transform>(e);
 
-        Mat4 model = Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
+        math::Mat4 model = math::Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
 
-        GLuint prog = shaderManager_.getOrLoad(
+        GLuint prog = graphicsContext_.shader_manager.getOrLoad(
             "particle_points",
             "shaders/particle/particle.vert",
             "shaders/particle/particle.frag");
@@ -224,3 +227,6 @@ void VolumeRenderSystem::update(Registry& registry, const Window& window, float 
         glBindVertexArray(0);
     }
 }
+
+} // namespace systems
+} // namespace exd

@@ -4,9 +4,15 @@
 #include "components/camera_controller.hpp"
 #include "components/camera.hpp"
 
+namespace exd {
+namespace systems {
+
 class CameraControllerSystem {
 
     public:
-        void update(Registry& registry,Window& window, float dt);
+        void update(entities::Registry& registry, core::Window& window, float dt);
 
 };
+
+} // namespace systems
+} // namespace exd

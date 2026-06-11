@@ -1,14 +1,17 @@
 #pragma once
 #include "entities/registry.hpp"
 #include "core/window.hpp"
-#include "graphics/shader_manager.hpp"
+#include "graphics/graphics_context.hpp"
 
 class LBM;
 
+namespace exd {
+namespace systems {
+
 class ParticleSystem {
 public:
-    ParticleSystem();
-    void update(Registry& registry, const Window& window, float dt, LBM* lbm);
+    ParticleSystem(graphics::GraphicsContext& graphicsContext);
+    void update(entities::Registry& registry, const core::Window& window, float dt, LBM* lbm);
 
 private:
     void initGL(int particle_count);
@@ -19,5 +22,8 @@ private:
     int      gl_particle_count_ = 0;
     bool     gl_initialized_ = false;
 
-    ShaderManager shader_manager_;
+    graphics::GraphicsContext& graphicsContext_;
 };
+
+} // namespace systems
+} // namespace exd

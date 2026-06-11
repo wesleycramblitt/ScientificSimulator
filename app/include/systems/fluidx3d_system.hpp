@@ -3,35 +3,43 @@
 #include "core/window.hpp"
 #include <vector>
 
+// External library type (not in exd namespace)
+class LBM;
+
+namespace exd {
+namespace components {
 struct SimulationDomain;
 struct FluidX3DSolverConfig;
 struct FluidPhysics;
 struct SimulationInfo;
 struct Transform;
+} // namespace components
+namespace graphics {
 struct Mesh;
-class MeshManager;
-class LBM;
+class GraphicsContext;
+} // namespace graphics
+namespace systems {
 
 class FluidX3DSystem {
 public:
-    FluidX3DSystem();
-    explicit FluidX3DSystem(MeshManager* meshManager);
+    explicit FluidX3DSystem(graphics::GraphicsContext& graphicsContext);
     ~FluidX3DSystem();
-    void update(Registry& registry, Window& window, float dt);
-
-    // Expose LBM for other systems (particle, volume)
-    LBM* getLBM() const { return lbm_; }
+    void update(entities::Registry& registry, core::Window& window, float dt);
 
 private:
-    Mesh createDomainBox(const SimulationDomain& domain, const Transform& xform);
-    void createSolver(Registry& registry, Entity e,
-                      const SimulationDomain& domain,
-                      const FluidX3DSolverConfig& cfg,
-                      const FluidPhysics& phys,
-                      SimulationInfo& info,
-                      const Transform& xform);
+    graphics::Mesh createDomainBox(const components::SimulationDomain& domain, const components::Transform& xform);
+    void createSolver(entities::Registry& registry, entities::Entity e,
+                      const components::SimulationDomain& domain,
+                      const components::FluidX3DSolverConfig& cfg,
+                      const components::FluidPhysics& phys,
+                      components::SimulationInfo& info,
+                      const components::Transform& xform);
     void seedParticles(uint nx, uint ny, uint nz);
 
-    MeshManager* meshManager_ = nullptr;
+    graphics::GraphicsContext& graphicsContext_;
+
     LBM*         lbm_ = nullptr;
 };
+
+} // namespace systems
+} // namespace exd

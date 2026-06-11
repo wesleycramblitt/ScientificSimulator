@@ -1,5 +1,8 @@
 #include "entities/registry.hpp"
 
+namespace exd {
+namespace entities {
+
 Entity Registry::create(std::string name) {
     Entity::id_type id;
 
@@ -84,3 +87,6 @@ std::size_t Registry::entity_count() const noexcept {
     }
     return count;
 }
+
+} // namespace entities
+} // namespace exd

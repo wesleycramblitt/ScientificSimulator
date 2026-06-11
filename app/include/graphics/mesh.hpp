@@ -3,6 +3,9 @@
 #include <cstdint>
 #include "graphics/vertex.hpp"
 
+namespace exd {
+namespace graphics {
+
 enum Topology { TRIANGLES, LINES, POINTS };
 
 struct Mesh {
@@ -10,5 +13,8 @@ struct Mesh {
     std::vector<uint32_t> indices;
     Topology topology = TRIANGLES;
 };
+
+} // namespace graphics
+} // namespace exd
 
 

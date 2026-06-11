@@ -13,10 +13,13 @@
 #include "graphics/vertex.hpp"
 #include "graphics/mesh.hpp"
 
+namespace exd {
+namespace assets {
+
 static void ProcessNodeMerge(
     const aiNode* node,
     const aiScene* scene,
-    std::vector<Vertex>& outVertices,
+    std::vector<graphics::Vertex>& outVertices,
     std::vector<uint32_t>& outIndices
 ) {
     // For each mesh referenced by this node:
@@ -29,22 +32,22 @@ static void ProcessNodeMerge(
         // Vertices
         outVertices.reserve(outVertices.size() + m->mNumVertices);
         for (unsigned v = 0; v < m->mNumVertices; ++v) {
-            Vertex vert{};
-            vert.position = Vec3{
+            graphics::Vertex vert{};
+            vert.position = math::Vec3{
                 m->mVertices[v].x,
                 m->mVertices[v].y,
                 m->mVertices[v].z
             };
 
             if (m->HasNormals()) {
-                vert.normal = Vec3{
+                vert.normal = math::Vec3{
                     m->mNormals[v].x,
                     m->mNormals[v].y,
                     m->mNormals[v].z
                 };
             } else {
                 // If we didn't request generated normals, keep your default.
-                vert.normal = Vec3{0.0f, 0.0f, 1.0f};
+                vert.normal = math::Vec3{0.0f, 0.0f, 1.0f};
             }
 
             outVertices.push_back(vert);
@@ -78,7 +81,7 @@ static void ProcessNodeMerge(
     }
 }
 
-Mesh FileImporter::loadMeshWithAssimp(const std::string& path) {
+graphics::Mesh FileImporter::loadMeshWithAssimp(const std::string& path) {
     Assimp::Importer importer;
 
     // Good defaults for your Mesh:
@@ -98,8 +101,8 @@ Mesh FileImporter::loadMeshWithAssimp(const std::string& path) {
         throw std::runtime_error(std::string("Assimp load failed: ") + importer.GetErrorString());
     }
 
-    Mesh mesh;
-    mesh.topology = TRIANGLES;
+    graphics::Mesh mesh;
+    mesh.topology = graphics::TRIANGLES;
 
     ProcessNodeMerge(scene->mRootNode, scene, mesh.vertices, mesh.indices);
 
@@ -116,3 +119,6 @@ Mesh FileImporter::loadMeshWithAssimp(const std::string& path) {
 
     return mesh;
 }
+
+} // namespace assets
+} // namespace exd

@@ -1,5 +1,5 @@
 #include "systems/fluidx3d_system.hpp"
-#include "graphics/mesh_manager.hpp"
+#include "graphics/graphics_context.hpp"
 
 #define Mesh F3D_Mesh
 #include "lbm.hpp"
@@ -24,18 +24,20 @@
 #include <fstream>
 #include <vector>
 
-FluidX3DSystem::FluidX3DSystem() = default;
-FluidX3DSystem::FluidX3DSystem(MeshManager* meshManager) : meshManager_(meshManager) {}
+namespace exd {
+namespace systems {
+
+FluidX3DSystem::FluidX3DSystem(graphics::GraphicsContext& graphicsContext) : graphicsContext_(graphicsContext) {}
 FluidX3DSystem::~FluidX3DSystem() { delete lbm_; }
 
 // ── solver creation ──────────────────────────────────────────────────────
 
-void FluidX3DSystem::createSolver(Registry& registry, Entity entity,
-                                   const SimulationDomain& domain,
-                                   const FluidX3DSolverConfig& /*cfg*/,
-                                   const FluidPhysics& phys,
-                                   SimulationInfo& info,
-                                    const Transform& xform) {
+void FluidX3DSystem::createSolver(entities::Registry& registry, entities::Entity entity,
+                                   const components::SimulationDomain& domain,
+                                   const components::FluidX3DSolverConfig& /*cfg*/,
+                                   const components::FluidPhysics& phys,
+                                   components::SimulationInfo& info,
+                                    const components::Transform& xform) {
     const uint nx = domain.nx, ny = domain.ny, nz = domain.nz;
     const float nu = phys.nu;
 
@@ -58,11 +60,11 @@ void FluidX3DSystem::createSolver(Registry& registry, Entity entity,
             }
 
     // Find mesh entity (any MeshAsset) and its world-space Transform
-    Transform* mesh_xform = nullptr;
+    components::Transform* mesh_xform = nullptr;
     std::string stl_path;
-    for (auto fe : registry.view<MeshAsset, Transform>()) {
-        stl_path = registry.get<MeshAsset>(fe).path;
-        mesh_xform = &registry.get<Transform>(fe);
+    for (auto fe : registry.view<components::MeshAsset, components::Transform>()) {
+        stl_path = registry.get<components::MeshAsset>(fe).path;
+        mesh_xform = &registry.get<components::Transform>(fe);
         break;
     }
 
@@ -98,16 +100,16 @@ void FluidX3DSystem::createSolver(Registry& registry, Entity entity,
         float native_size = std::max(std::max(nx_size, ny_size), nz_size);
 
         // Convert world position → grid position
-        const Vec3& dp = xform.position;
-        const Vec3& ds = xform.scale;
-        const Quat dr = xform.rotation;
+        const math::Vec3& dp = xform.position;
+        const math::Vec3& ds = xform.scale;
+        const math::Quat dr = xform.rotation;
 
-        Vec3 rel{mesh_xform->position.x - dp.x,
+        math::Vec3 rel{mesh_xform->position.x - dp.x,
                  mesh_xform->position.y - dp.y,
                  mesh_xform->position.z - dp.z};
-        Quat inv_dr{dr.w, -dr.x, -dr.y, -dr.z};
-        Vec3 rotated = inv_dr * rel;
-        Vec3 grid_center{rotated.x / ds.x, rotated.y / ds.y, rotated.z / ds.z};
+        math::Quat inv_dr{dr.w, -dr.x, -dr.y, -dr.z};
+        math::Vec3 rotated = inv_dr * rel;
+        math::Vec3 grid_center{rotated.x / ds.x, rotated.y / ds.y, rotated.z / ds.z};
         grid_center.x += (float)nx * 0.5f;
         grid_center.y += (float)ny * 0.5f;
         grid_center.z += (float)nz * 0.5f;
@@ -117,8 +119,8 @@ void FluidX3DSystem::createSolver(Registry& registry, Entity entity,
         // 180° around Y maps +Z ↔ -Z (flip) while keeping Y unchanged,
         // which aligns STL's default axes with the solver's expected flow direction.
         // Grid-space orientation: inv(domain_rot) * mesh_rot
-        Quat grid_rot = inv_dr * mesh_xform->rotation;
-        Vec3 rx = grid_rot.right(), ry = grid_rot.up(), rz = grid_rot * Vec3{0,0,1};
+        math::Quat grid_rot = inv_dr * mesh_xform->rotation;
+        math::Vec3 rx = grid_rot.right(), ry = grid_rot.up(), rz = grid_rot * math::Vec3{0,0,1};
         float3x3 mesh_rot(rx.x, rx.y, rx.z,
                           ry.x, ry.y, ry.z,
                           rz.x, rz.y, rz.z);
@@ -130,8 +132,8 @@ void FluidX3DSystem::createSolver(Registry& registry, Entity entity,
         float stl_cx = (stl_min[0] + stl_max[0]) * 0.5f;
         float stl_cy = (stl_min[1] + stl_max[1]) * 0.5f;
         float stl_cz = (stl_min[2] + stl_max[2]) * 0.5f;
-        Vec3 stl_gc{stl_cx, stl_cy, stl_cz};
-        Vec3 rot_gc = grid_rot * stl_gc;
+        math::Vec3 stl_gc{stl_cx, stl_cy, stl_cz};
+        math::Vec3 rot_gc = grid_rot * stl_gc;
         float3 final_center(grid_center.x + rot_gc.x * stl_to_grid,
                             grid_center.y + rot_gc.y * stl_to_grid,
                             grid_center.z + rot_gc.z * stl_to_grid);
@@ -149,32 +151,32 @@ void FluidX3DSystem::createSolver(Registry& registry, Entity entity,
     printf("[LBM] Total TYPE_S cells: %d / %llu\n", solid_count, (unsigned long long)N);
 
     printf("[LBM] Ready.\n");
-    info.status = SimulationStatus::Stopped;
+    info.status = components::SimulationStatus::Stopped;
     info.current_step = 0;
 }
 
 // ── per-frame update ─────────────────────────────────────────────────────
 
-void FluidX3DSystem::update(Registry& registry, Window& window, float /*dt*/) {
-    for (auto e : registry.view<SimulationDomain, FluidX3DSolverConfig, FluidPhysics, SimulationInfo, Transform>()) {
-        if (registry.has<Disabled>(e)) continue;
+void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, float /*dt*/) {
+    for (auto e : registry.view<components::SimulationDomain, components::FluidX3DSolverConfig, components::FluidPhysics, components::SimulationInfo, components::Transform>()) {
+        if (registry.has<components::Disabled>(e)) continue;
 
-        auto& domain  = registry.get<SimulationDomain>(e);
-        auto& info    = registry.get<SimulationInfo>(e);
-        auto& xform   = registry.get<Transform>(e);
+        auto& domain  = registry.get<components::SimulationDomain>(e);
+        auto& info    = registry.get<components::SimulationInfo>(e);
+        auto& xform   = registry.get<components::Transform>(e);
 
-        if (!registry.has<Renderable>(e)) {
-            Mesh boxMesh = createDomainBox(domain, xform);
-            uint32_t handle = meshManager_->create(boxMesh);
-            registry.emplace<Renderable>(e, handle);
+        if (!registry.has<components::Renderable>(e)) {
+            graphics::Mesh boxMesh = createDomainBox(domain, xform);
+            uint32_t handle = graphicsContext_.mesh_manager.create(boxMesh);
+            registry.emplace<components::Renderable>(e, handle);
             createSolver(registry, e, domain,
-                         registry.get<FluidX3DSolverConfig>(e),
-                         registry.get<FluidPhysics>(e), info, xform);
+                         registry.get<components::FluidX3DSolverConfig>(e),
+                         registry.get<components::FluidPhysics>(e), info, xform);
         }
 
         if (window.simulation_mode && lbm_) {
-            if (info.status == SimulationStatus::Stopped) {
-                info.status = SimulationStatus::Running;
+            if (info.status == components::SimulationStatus::Stopped) {
+                info.status = components::SimulationStatus::Running;
                 // Seed particles on first run (after initialize)
                 seedParticles(domain.nx, domain.ny, domain.nz);
             }
@@ -184,10 +186,10 @@ void FluidX3DSystem::update(Registry& registry, Window& window, float /*dt*/) {
             lbm_->integrate_particles(info.steps_per_frame, info.total_steps);
 
             // Upload velocity magnitude to volume texture
-            if (registry.has<VolumeField>(e)) {
-                auto& vf = registry.get<VolumeField>(e);
+            if (registry.has<components::VolumeField>(e)) {
+                auto& vf = registry.get<components::VolumeField>(e);
                 if (!vf.interop_ready)
-                    VolumeTexture::create(vf, domain.nx, domain.ny, domain.nz);
+                    graphics::VolumeTexture::create(vf, domain.nx, domain.ny, domain.nz);
                 if (vf.interop_ready) {
                     lbm_->u.read_from_device();
                     ulong N = lbm_->get_N();
@@ -196,12 +198,12 @@ void FluidX3DSystem::update(Registry& registry, Window& window, float /*dt*/) {
                         float ux = lbm_->u.x[i], uy = lbm_->u.y[i], uz = lbm_->u.z[i];
                         mag[i] = std::sqrt(ux*ux + uy*uy + uz*uz);
                     }
-                    VolumeTexture::upload(vf, domain.nx, domain.ny, domain.nz, mag.data());
+                    graphics::VolumeTexture::upload(vf, domain.nx, domain.ny, domain.nz, mag.data());
                 }
             }
 
-        } else if (!window.simulation_mode && info.status == SimulationStatus::Running) {
-            info.status = SimulationStatus::Stopped;
+        } else if (!window.simulation_mode && info.status == components::SimulationStatus::Running) {
+            info.status = components::SimulationStatus::Stopped;
         }
     }
 }
@@ -225,3 +227,5 @@ void FluidX3DSystem::seedParticles(uint nx, uint ny, uint nz) {
        lbm_->particles->x[0], lbm_->particles->y[0], lbm_->particles->z[0]);
 }
 
+} // namespace systems
+} // namespace exd

@@ -3,6 +3,9 @@
 #include <unordered_map>
 #include <glad/gl.h>
 
+namespace exd {
+namespace graphics {
+
 class ShaderManager {
 public:
     struct Program {
@@ -32,3 +35,6 @@ private:
     static uint64_t getLastWriteStamp(const std::string& path);
     void reloadProgram(const std::string& name, Program& p);
 };
+
+} // namespace graphics
+} // namespace exd

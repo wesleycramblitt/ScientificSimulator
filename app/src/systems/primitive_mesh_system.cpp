@@ -4,32 +4,34 @@
 #include "components/cube.hpp"
 #include "components/renderable.hpp"
 
+namespace exd {
+namespace systems {
 
-PrimitiveMeshSystem::PrimitiveMeshSystem(MeshManager* _meshManager) : meshManager_(_meshManager) {}
+PrimitiveMeshSystem::PrimitiveMeshSystem(graphics::GraphicsContext& graphicsContext) : graphicsContext_(graphicsContext) {}
 
-void PrimitiveMeshSystem::update(Registry& registry, Window& window) {
+void PrimitiveMeshSystem::update(entities::Registry& registry, core::Window& window) {
  
-    for (auto e : registry.view<Cube>()) {
-        auto cube = registry.get<Cube>(e);
+    for (auto e : registry.view<components::Cube>()) {
+        auto cube = registry.get<components::Cube>(e);
         auto mesh = createMesh(cube);
         
-        int32_t mesh_handle = meshManager_->create(mesh);
-        registry.emplace<Renderable>(e, mesh_handle);
+        int32_t mesh_handle = graphicsContext_.mesh_manager.create(mesh);
+        registry.emplace<components::Renderable>(e, mesh_handle);
 
         
     }
 }
 
-Mesh PrimitiveMeshSystem::createMesh(Cube cube)
+graphics::Mesh PrimitiveMeshSystem::createMesh(components::Cube cube)
 {
-    Mesh mesh;
+    graphics::Mesh mesh;
 
     float h = cube.size * 0.5f;
 
     // Positions per face
     struct Face {
-        Vec3 normal;
-        Vec3 v0, v1, v2, v3;
+        math::Vec3 normal;
+        math::Vec3 v0, v1, v2, v3;
     };
 
 
@@ -98,3 +100,5 @@ Mesh PrimitiveMeshSystem::createMesh(Cube cube)
 }
 
 
+} // namespace systems
+} // namespace exd

@@ -3,6 +3,9 @@
 #include "math/quat.hpp"
 #include <iostream>
 
+namespace exd {
+namespace math {
+
 struct Mat4 { 
     float m[16]; 
 
@@ -104,3 +107,6 @@ struct Mat4 {
         return M;
     }
 };
+
+} // namespace math
+} // namespace exd

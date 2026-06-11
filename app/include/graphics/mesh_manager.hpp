@@ -3,6 +3,9 @@
 #include "graphics/mesh_gpu.hpp"
 #include <unordered_map>
 
+namespace exd {
+namespace graphics {
+
 class MeshManager {
 public:
     const uint32_t create(const Mesh& mesh);
@@ -14,3 +17,6 @@ private:
     std::unordered_map<uint32_t, Mesh> mesh_map_;
     std::unordered_map<uint32_t, MeshGPU> meshgpu_map_;
 };
+
+} // namespace graphics
+} // namespace exd
