@@ -136,7 +136,7 @@ void VolumeRenderSystem::update(entities::Registry& registry, const core::Window
             auto& vol       = registry.get<components::VolumeField>(e);
             auto& domain    = registry.get<components::SimulationDomain>(e);
 
-        if (!vol.interop_ready || vol.gl_tex == 0)
+        if (!vol.interop_ready || vol.texture_handle == 0)
             continue;
 
             // Lazy-create proxy cube mesh
@@ -145,13 +145,6 @@ void VolumeRenderSystem::update(entities::Registry& registry, const core::Window
 
             auto& vr = registry.get<components::VolumeRenderable>(e);
             if (vr.mesh == 0) continue;
-
-            static bool once = false;
-            if (!once) {
-                printf("[VolumeSys] rendering: tex=%u mesh=%u domain=%dx%dx%d\n",
-                       vol.gl_tex, vr.mesh, domain.nx, domain.ny, domain.nz);
-                once = true;
-            }
 
         // Compute world-space bounds
         math::Vec3 box_min, box_max;
@@ -187,9 +180,8 @@ void VolumeRenderSystem::update(entities::Registry& registry, const core::Window
         glUniform3i(glGetUniformLocation(prog, "u_grid_dims"),
                     domain.nx, domain.ny, domain.nz);
 
-        // Bind 3D texture to texture unit 0
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_3D, vol.gl_tex);
+        // Bind 3D texture via the texture manager
+        graphicsContext_.texture_manager.bind(vol.texture_handle);
         glUniform1i(glGetUniformLocation(prog, "u_volume"), 0);
 
         // Draw proxy cube (back faces for camera-inside-volume case)

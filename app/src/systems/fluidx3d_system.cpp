@@ -15,7 +15,7 @@
 #include "components/disabled.hpp"
 #include "components/volume_field.hpp"
 #include "components/mesh_asset.hpp"
-#include "graphics/volume_texture.hpp"
+#include "graphics/texture_3d.hpp"
 #include "math/quat.hpp"
 
 #include <cstdlib>
@@ -30,7 +30,6 @@ namespace systems {
 FluidX3DSystem::FluidX3DSystem(graphics::GraphicsContext& graphicsContext) : graphicsContext_(graphicsContext) {}
 FluidX3DSystem::~FluidX3DSystem() { delete lbm_; }
 
-// ── solver creation ──────────────────────────────────────────────────────
 
 void FluidX3DSystem::createSolver(entities::Registry& registry, entities::Entity entity,
                                    const components::SimulationDomain& domain,
@@ -188,17 +187,21 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
             // Upload velocity magnitude to volume texture
             if (registry.has<components::VolumeField>(e)) {
                 auto& vf = registry.get<components::VolumeField>(e);
-                if (!vf.interop_ready)
-                    graphics::VolumeTexture::create(vf, domain.nx, domain.ny, domain.nz);
-                if (vf.interop_ready) {
-                    lbm_->u.read_from_device();
-                    ulong N = lbm_->get_N();
-                    std::vector<float> mag(N);
-                    for (ulong i = 0; i < N; i++) {
-                        float ux = lbm_->u.x[i], uy = lbm_->u.y[i], uz = lbm_->u.z[i];
-                        mag[i] = std::sqrt(ux*ux + uy*uy + uz*uz);
-                    }
-                    graphics::VolumeTexture::upload(vf, domain.nx, domain.ny, domain.nz, mag.data());
+                lbm_->u.read_from_device();
+                ulong N = lbm_->get_N();
+                std::vector<float> mag(N);
+                for (ulong i = 0; i < N; i++) {
+                    float ux = lbm_->u.x[i], uy = lbm_->u.y[i], uz = lbm_->u.z[i];
+                    mag[i] = std::sqrt(ux*ux + uy*uy + uz*uz);
+                }
+
+                if (!vf.interop_ready) {
+                    graphics::Texture3D tex(domain.nx, domain.ny, domain.nz, mag.data());
+                    vf.texture_handle = graphicsContext_.texture_manager.uploadToGPU(tex);
+                    vf.interop_ready = true;
+                } else {
+                    graphics::Texture3D tex(domain.nx, domain.ny, domain.nz, mag.data());
+                    graphicsContext_.texture_manager.update(vf.texture_handle, tex);
                 }
             }
 

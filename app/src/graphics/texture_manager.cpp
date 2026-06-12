@@ -1,38 +1,63 @@
-#include "common/macros.hpp"
 #include "graphics/texture_manager.hpp"
-#include <fstream>
-#include <sstream>
+#include "common/macros.hpp"
+#include <stdexcept>
 
 namespace exd {
 namespace graphics {
 
-const uint32_t TextureManager::uploadToGPU(Texture& texture) {
-    return -1;
-}
+uint32_t TextureManager::uploadToGPU(ITextureSource& source) {
+    GLuint id;
+    glGenTextures(1, &id);
+    GL_CALL(glBindTexture(source.gl_target(), id));
 
-const uint32_t TextureManager::uploadToGPU(components::CubeMap& cubemap) {
-    auto it = textures_.find(cubemap.texture_handle);
-    if (it != textures_.end()) return it->second.id;
+    int face_count = (source.gl_target() == GL_TEXTURE_CUBE_MAP) ? 6 : 1;
+    int mips = source.max_mip_levels();
 
-    uint32_t nextId = textures_.size()+1;
-    textures_.try_emplace(nextId, cubemap);
-    return nextId;
-}
-
-
-const TextureGPU* TextureManager::bind(const uint32_t handle) {
-    if (textures_.find(handle) == textures_.end()) {
-        throw std::runtime_error("Texture handle doesn't exist");
+    for (int face = 0; face < face_count; ++face) {
+        for (int level = 0; level < mips; ++level) {
+            source.upload_level(level, face);
+        }
     }
 
-    // std::cout << "texture found at handle: " << handle << std::endl;
-    TextureGPU* textureGPU = &textures_.at(handle);
+    // Sampling parameters
+    glTexParameteri(source.gl_target(), GL_TEXTURE_MIN_FILTER, source.min_filter());
+    glTexParameteri(source.gl_target(), GL_TEXTURE_MAG_FILTER, source.mag_filter());
+    glTexParameteri(source.gl_target(), GL_TEXTURE_WRAP_S,     source.wrap_s());
+    glTexParameteri(source.gl_target(), GL_TEXTURE_WRAP_T,     source.wrap_t());
+    if (source.gl_target() == GL_TEXTURE_3D || source.gl_target() == GL_TEXTURE_CUBE_MAP) {
+        glTexParameteri(source.gl_target(), GL_TEXTURE_WRAP_R, source.wrap_r());
+    }
 
-    // std::cout << "got textureGPU* " << std::endl;
-    GL_CALL(glActiveTexture(GL_TEXTURE0));
-    GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, textureGPU->id));
-    // std::cout << "bound texture" << std::endl;
-    return textureGPU;
+    GL_CALL(glBindTexture(source.gl_target(), 0));
+
+    uint32_t handle = next_handle_++;
+    textures_.try_emplace(handle, id, source.gl_target());
+    return handle;
+}
+
+void TextureManager::update(uint32_t handle, ITextureSource& source) {
+    auto it = textures_.find(handle);
+    if (it == textures_.end())
+        throw std::runtime_error("TextureManager::update — handle not found");
+
+    GL_CALL(glBindTexture(source.gl_target(), it->second.id));
+    source.update_level(0, 0);
+    GL_CALL(glBindTexture(source.gl_target(), 0));
+}
+
+const TextureGPU* TextureManager::bind(uint32_t handle, GLenum texture_unit) {
+    auto it = textures_.find(handle);
+    if (it == textures_.end())
+        throw std::runtime_error("TextureManager::bind — handle not found");
+
+    TextureGPU& gpu = it->second;
+    GL_CALL(glActiveTexture(texture_unit));
+    GL_CALL(glBindTexture(gpu.target, gpu.id));
+    return &gpu;
+}
+
+void TextureManager::destroy(uint32_t handle) {
+    textures_.erase(handle);
 }
 
 } // namespace graphics

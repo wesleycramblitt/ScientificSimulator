@@ -12,7 +12,6 @@ class CubeMapSystem {
         CubeMapSystem(graphics::GraphicsContext& graphicsContext);
         void update(entities::Registry& registry, core::Window& window);
         graphics::Mesh createMesh(components::CubeMap cubemap);
-        void setCubeMapTextures(components::CubeMap& cubemap);
     private:
         graphics::GraphicsContext& graphicsContext_;
 };

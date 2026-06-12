@@ -2,6 +2,8 @@
 #include "systems/cubemap_system.hpp"
 #include "core/window.hpp"
 #include "components/renderable.hpp"
+#include "graphics/texture_cubemap.hpp"
+#include <array>
 
 namespace exd {
 namespace systems {
@@ -14,9 +16,25 @@ void CubeMapSystem::update(entities::Registry& registry, core::Window& window) {
     for (auto e : registry.view<components::CubeMap>()) {
         auto& cube = registry.get<components::CubeMap>(e);
 
-        setCubeMapTextures(cube);
-
-        cube.texture_handle = graphicsContext_.texture_manager.uploadToGPU(cube); 
+        // Build a CubeMapTexture from the component data and upload
+        if (cube.cross_layout) {
+            graphics::CubeMapTexture tex(
+                "assets/cubemaps/" + cube.name + "/cross.png",
+                512  // face_size, will be recalculated in upload_level
+            );
+            cube.texture_handle = graphicsContext_.texture_manager.uploadToGPU(tex);
+        } else {
+            std::array<std::string, 6> face_paths = {
+                "assets/cubemaps/" + cube.name + "/1.bmp",
+                "assets/cubemaps/" + cube.name + "/2.bmp",
+                "assets/cubemaps/" + cube.name + "/3.bmp",
+                "assets/cubemaps/" + cube.name + "/4.bmp",
+                "assets/cubemaps/" + cube.name + "/5.bmp",
+                "assets/cubemaps/" + cube.name + "/6.bmp",
+            };
+            graphics::CubeMapTexture tex(std::move(face_paths));
+            cube.texture_handle = graphicsContext_.texture_manager.uploadToGPU(tex);
+        }
 
         auto mesh = createMesh(cube);
         
@@ -28,27 +46,8 @@ void CubeMapSystem::update(entities::Registry& registry, core::Window& window) {
     }
 }
 
-void CubeMapSystem::setCubeMapTextures(components::CubeMap& cubemap) {
-    if (cubemap.cross_layout) {
-        // Single cross-shaped image
-        cubemap.faces = {
-            { "assets/cubemaps/"+cubemap.name+"/cross.png" }
-        };
-    } else {
-        // Individual face files
-        cubemap.faces = {
-            { "assets/cubemaps/"+cubemap.name+"/1.bmp" },
-            { "assets/cubemaps/"+cubemap.name+"/2.bmp" },
-            { "assets/cubemaps/"+cubemap.name+"/3.bmp" },
-            { "assets/cubemaps/"+cubemap.name+"/4.bmp" },
-            { "assets/cubemaps/"+cubemap.name+"/5.bmp" },
-            { "assets/cubemaps/"+cubemap.name+"/6.bmp" }
-        };
-    }
-}
 
-
-graphics::Mesh CubeMapSystem::createMesh(components::CubeMap cubemap)
+graphics::Mesh CubeMapSystem::createMesh(components::CubeMap /*cubemap*/)
 {
     graphics::Mesh mesh;
 
