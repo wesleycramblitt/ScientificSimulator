@@ -11,6 +11,7 @@
 #include "components/grid.hpp"
 #include "components/render_technique_mirror.hpp"
 #include "components/render_technique_cubemap.hpp"
+#include "components/render_technique_lambertian.hpp"
 #include "components/fluid_domain.hpp"
 #include "components/fluid_physics.hpp"
 #include "components/fluidx3d_config.hpp"
@@ -67,6 +68,7 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     simInfo.total_steps = 5000;
     simInfo.steps_per_frame = 10;
     registry.emplace<components::Transform>(simEntity, math::Vec3(0, 80, 0),math::Quat(1,0,0,0), math::Vec3(1,1,1));
+    registry.emplace<components::Render_Technique_Lambertian>(simEntity);  // domain box mesh
     // registry.emplace<components::VolumeField>(simEntity);  // enable volume ray-march
     registry.emplace<components::ParticleCloud>(simEntity);  // particle tracers
 
@@ -74,6 +76,7 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     entities::Entity gridEntity = registry.create("Grid");
     registry.emplace<components::Grid>(gridEntity, 50.0f, math::Quat{0.4f, 0.4f, 0.4f, 0.4f});
     registry.emplace<components::Transform>(gridEntity);
+    registry.emplace<components::Render_Technique_Lambertian>(gridEntity);
 
 
 

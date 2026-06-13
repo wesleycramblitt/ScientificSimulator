@@ -1,15 +1,15 @@
 #pragma once
+#include <vector>
 #include <cstdint>
 
 namespace exd {
 namespace components {
 
-// Particle tracer cloud attached to domain entity
+// Holds particle positions populated by the solver system.
+// ParticleRenderTechnique reads this and uploads to its own VBO.
 struct ParticleCloud {
-    uint32_t gl_vbo = 0;       // OpenGL VBO with particle positions (x,y,z)
-    uint32_t gl_vao = 0;       // VAO for rendering
-    int particle_count = 500000;
-    bool initialized = false;
+    std::vector<float> positions;  // interleaved x, y, z
+    int particle_count = 0;
 };
 
 } // namespace components

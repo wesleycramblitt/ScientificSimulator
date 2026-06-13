@@ -1,214 +1,243 @@
-#include "common/macros.hpp"
 #include "systems/render_system.hpp"
+#include "common/macros.hpp"
 #include "components/transform.hpp"
 #include "components/camera.hpp"
 #include "components/renderable.hpp"
 #include "components/cubemap.hpp"
-#include "components/grid.hpp"
 #include "components/disabled.hpp"
 #include "components/render_technique_mirror.hpp"
+#include "components/render_technique_cubemap.hpp"
+#include "components/render_technique_lambertian.hpp"
 #include "components/fluid_domain.hpp"
-
+#include "components/particle_cloud.hpp"
+#include "components/volume_field.hpp"
+#include "components/volume_renderable.hpp"
 #include "graphics/render_techniques/renderable.hpp"
-#include "graphics/render_techniques/cubemap_render_technique.h"
-
-
+#include "graphics/render_techniques/particle_draw_data.hpp"
+#include "graphics/render_techniques/volume_draw_data.hpp"
 #include "core/window.hpp"
 #include "math/mat4.hpp"
 #include "math/quat.hpp"
-
-#include <glad/gl.h>
-#include <stdexcept>
-#include <iostream>
+#include <algorithm>
 
 namespace exd {
 namespace systems {
 
-RenderSystem::RenderSystem(graphics::GraphicsContext& graphicsContext)  : graphics_context_(graphicsContext) 
+// ── construction ──────────────────────────────────────────────────────────
+
+RenderSystem::RenderSystem(graphics::GraphicsContext& graphicsContext)
+    : ctx_(graphicsContext),
+      cubemapTechnique_(graphicsContext),
+      lambertianTechnique_(graphicsContext),
+      reflectiveTechnique_(graphicsContext),
+      particleTechnique_(graphicsContext),
+      volumeTechnique_(graphicsContext)
 {}
-RenderSystem::~RenderSystem() {
+
+RenderSystem::~RenderSystem() = default;
+
+static math::Vec3 computeWorldBounds(const components::Transform& xform,
+                                      int nx, int ny, int nz,
+                                      math::Vec3& box_min, math::Vec3& box_max) {
+    const float hx = (float)nx * 0.5f, hy = (float)ny * 0.5f, hz = (float)nz * 0.5f;
+    const math::Vec3 corners[8] = {
+        {-hx,-hy,-hz},{ hx,-hy,-hz},{-hx, hy,-hz},{ hx, hy,-hz},
+        {-hx,-hy, hz},{ hx,-hy, hz},{-hx, hy, hz},{ hx, hy, hz},
+    };
+    box_min = { 1e30f, 1e30f, 1e30f};
+    box_max = {-1e30f,-1e30f,-1e30f};
+    for (auto& c : corners) {
+        math::Vec3 r = xform.rotation * math::Vec3{c.x*xform.scale.x, c.y*xform.scale.y, c.z*xform.scale.z};
+        math::Vec3 w{r.x+xform.position.x, r.y+xform.position.y, r.z+xform.position.z};
+        box_min = {std::min(box_min.x,w.x), std::min(box_min.y,w.y), std::min(box_min.z,w.z)};
+        box_max = {std::max(box_max.x,w.x), std::max(box_max.y,w.y), std::max(box_max.z,w.z)};
+    }
+    return box_max - box_min;
 }
 
-void RenderSystem::update(entities::Registry& registry, const core::Window& window, float dt) {
+void RenderSystem::ensureVolumeProxy(entities::Registry& registry,
+                                      entities::Entity e, int nx, int ny, int nz) {
+    if (registry.has<components::VolumeRenderable>(e)) return;
 
-    entities::Entity camera_entity{};
-    components::Camera* cam = nullptr;
-    components::Transform* cam_xform = nullptr;
+    const float hx = (float)nx * 0.5f, hy = (float)ny * 0.5f, hz = (float)nz * 0.5f;
+    graphics::Mesh mesh;
+    mesh.topology = graphics::TRIANGLES;
 
+    const math::Vec3 p[8] = {
+        {-hx,-hy,-hz},{ hx,-hy,-hz},{ hx, hy,-hz},{-hx, hy,-hz},
+        {-hx,-hy, hz},{ hx,-hy, hz},{ hx, hy, hz},{-hx, hy, hz},
+    };
+    auto tri = [&](int a, int b, int c) {
+        math::Vec3 u{p[b].x-p[a].x, p[b].y-p[a].y, p[b].z-p[a].z};
+        math::Vec3 v{p[c].x-p[a].x, p[c].y-p[a].y, p[c].z-p[a].z};
+        math::Vec3 n{u.y*v.z - u.z*v.y, u.z*v.x - u.x*v.z, u.x*v.y - u.y*v.x};
+        mesh.vertices.push_back({p[a], n});
+        mesh.vertices.push_back({p[b], n});
+        mesh.vertices.push_back({p[c], n});
+    };
+    tri(4,5,6); tri(4,6,7); tri(1,0,3); tri(1,3,2);
+    tri(5,1,2); tri(5,2,6); tri(0,4,7); tri(0,7,3);
+    tri(7,6,2); tri(7,2,3); tri(0,1,5); tri(0,5,4);
+
+    uint32_t handle = ctx_.mesh_manager.create(mesh);
+    registry.emplace<components::VolumeRenderable>(e, handle);
+}
+
+void RenderSystem::renderCubemapPass(entities::Registry& registry,
+                                      const math::Mat4& view,
+                                      const math::Mat4& proj) {
+    auto v = registry.view<components::CubeMap, components::Renderable,
+                            components::Render_Technique_CubeMap>();
+    if (v.begin() == v.end()) return;
+
+    cubemapTechnique_.bind();
+    for (auto e : v) {
+        if (registry.has<components::Disabled>(e)) continue;
+        auto& cubemap = registry.get<components::CubeMap>(e);
+        auto& r       = registry.get<components::Renderable>(e);
+        graphics::render_techniques::Renderable data{
+            r.mesh, cubemap.texture_handle,
+            {{"u_view", view}, {"u_proj", proj}}
+        };
+        cubemapTechnique_.draw(data);
+    }
+    cubemapTechnique_.unbind();
+}
+
+void RenderSystem::renderOpaquePass(entities::Registry& registry,
+                                     const math::Mat4& view, const math::Mat4& proj) {
+    auto v = registry.view<components::Transform, components::Renderable,
+                            components::Render_Technique_Lambertian>();
+    if (v.begin() == v.end()) return;
+
+    lambertianTechnique_.bind(view, proj);
+    for (auto e : v) {
+        if (registry.has<components::Disabled>(e)) continue;
+        auto& xform = registry.get<components::Transform>(e);
+        auto& r     = registry.get<components::Renderable>(e);
+        if (r.mesh == 0) continue;
+        math::Mat4 model = math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale);
+        lambertianTechnique_.draw(r.mesh, model);
+    }
+    lambertianTechnique_.unbind();
+}
+
+void RenderSystem::renderReflectivePass(entities::Registry& registry,
+                                         const math::Mat4& view,
+                                         const math::Mat4& proj,
+                                         const math::Vec3& cam_pos) {
+    auto v = registry.view<components::Transform, components::Renderable,
+                            components::Render_Technique_Mirror>();
+    if (v.begin() == v.end()) return;
+
+    uint32_t cubemap_tex = 0;
+    for (auto e : registry.view<components::CubeMap, components::Render_Technique_CubeMap>()) {
+        cubemap_tex = registry.get<components::CubeMap>(e).texture_handle;
+        break;
+    }
+    if (cubemap_tex == 0) return;
+
+    reflectiveTechnique_.bind(view, proj, cam_pos, cubemap_tex);
+    for (auto e : v) {
+        if (registry.has<components::Disabled>(e)) continue;
+        auto& r     = registry.get<components::Renderable>(e);
+        auto& xform = registry.get<components::Transform>(e);
+        if (r.mesh == 0) continue;
+        math::Mat4 model = math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale);
+        reflectiveTechnique_.draw(r.mesh, model);
+    }
+    reflectiveTechnique_.unbind();
+}
+
+void RenderSystem::renderParticlePass(entities::Registry& registry,
+                                       const math::Mat4& view,
+                                       const math::Mat4& proj) {
+    auto v = registry.view<components::Transform, components::ParticleCloud,
+                            components::SimulationDomain>();
+    if (v.begin() == v.end()) return;
+
+    particleTechnique_.bind();
+    for (auto e : v) {
+        if (registry.has<components::Disabled>(e)) continue;
+        auto& pc = registry.get<components::ParticleCloud>(e);
+        if (pc.particle_count == 0 || pc.positions.empty()) continue;
+        auto& xform = registry.get<components::Transform>(e);
+        graphics::render_techniques::ParticleDrawData data{
+            pc.positions.data(), pc.particle_count,
+            {{"u_model", math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale)},
+             {"u_view", view}, {"u_proj", proj}}
+        };
+        particleTechnique_.draw(data);
+    }
+    particleTechnique_.unbind();
+}
+
+void RenderSystem::renderVolumePass(entities::Registry& registry,
+                                     const math::Mat4& view,
+                                     const math::Mat4& proj,
+                                     const math::Vec3& cam_pos) {
+    auto v = registry.view<components::Transform, components::VolumeField,
+                            components::SimulationDomain>();
+    if (v.begin() == v.end()) return;
+
+    volumeTechnique_.bind();
+    for (auto e : v) {
+        if (registry.has<components::Disabled>(e)) continue;
+        auto& xform  = registry.get<components::Transform>(e);
+        auto& vol    = registry.get<components::VolumeField>(e);
+        auto& domain = registry.get<components::SimulationDomain>(e);
+        if (!vol.interop_ready || vol.texture_handle == 0) continue;
+
+        ensureVolumeProxy(registry, e, domain.nx, domain.ny, domain.nz);
+
+        auto& vr = registry.get<components::VolumeRenderable>(e);
+        if (vr.mesh == 0) continue;
+
+        math::Vec3 box_min, box_max;
+        computeWorldBounds(xform, domain.nx, domain.ny, domain.nz, box_min, box_max);
+
+        graphics::render_techniques::VolumeDrawData data{
+            vol.texture_handle, vr.mesh, domain.nx, domain.ny, domain.nz,
+            {{"u_model",   math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale)},
+             {"u_view",    view},
+             {"u_proj",    proj},
+             {"u_cam_pos", cam_pos},
+             {"u_box_min", box_min},
+             {"u_box_max", box_max}}
+        };
+        volumeTechnique_.draw(data);
+    }
+    volumeTechnique_.unbind();
+}
+
+// ── main update ───────────────────────────────────────────────────────────
+
+void RenderSystem::update(entities::Registry& registry, const core::Window& window, float /*dt*/) {
+    // ── Camera ──
+    const components::Transform* cam_xform = nullptr;
+    const components::Camera*   cam       = nullptr;
     for (auto e : registry.view<components::Camera, components::Transform>()) {
-        auto& c = registry.get<components::Camera>(e);
-        camera_entity = e;
-        cam = &c;
+        cam       = &registry.get<components::Camera>(e);
         cam_xform = &registry.get<components::Transform>(e);
         break;
     }
+    if (!cam || !cam_xform)
+        throw std::runtime_error("No camera in scene.");
 
-    if (!cam || !cam_xform) {
-        throw std::runtime_error("No camera or camera transform in scene.");
-    }
+    int w, h; float aspect;
+    window.getDimensions(w, h, aspect);
 
-    int width, height;
-    float aspect;
+    math::Vec3 forward = (cam_xform->rotation * math::Vec3{0,0,-1}).norm();
+    math::Vec3 up      = (cam_xform->rotation * math::Vec3{0,1, 0}).norm();
+    math::Mat4 view    = math::Mat4::lookAt(cam_xform->position, cam_xform->position + forward, up);
+    math::Mat4 proj    = math::Mat4::perspective(cam->fov_y_radians, aspect, cam->near_plane, cam->far_plane);
 
-    window.getDimensions(width,height,aspect);
-
-    math::Vec3 forward = (cam_xform->rotation * math::Vec3{0.0f, 0.0f, -1.0f}).norm();
-    math::Vec3 up      = (cam_xform->rotation * math::Vec3{0.0f, 1.0f,  0.0f}).norm();
-
-    math::Mat4 view = math::Mat4::lookAt(
-        cam_xform->position,
-        cam_xform->position + forward,
-        up
-    );
-
-    math::Mat4 proj = math::Mat4::perspective(cam->fov_y_radians, aspect, cam->near_plane, cam->far_plane);
-
-
-    for (auto e : registry.view<components::CubeMap, components::Renderable>()) {
-        if (registry.has<components::Disabled>(e)) continue;
-
-        graphics::render_techniques::CubeMapRenderTechnique cubeMapRenderTechnique{graphics_context_};
-
-        auto& cubemap = registry.get<components::CubeMap>(e);
-        auto& componentRenderable = registry.get<components::Renderable>(e);
-
-        cubeMapRenderTechnique.bind();
-        graphics::render_techniques::Renderable rtRenderable{
-            componentRenderable.mesh,
-            cubemap.texture_handle,
-            {
-                {"u_view", view},
-                {"u_proj", proj}
-            }
-        };
-
-        cubeMapRenderTechnique.draw(rtRenderable);
-        cubeMapRenderTechnique.unbind();
-    }
-
-    uint32_t mesh_program_ = graphics_context_.shader_manager.getOrLoad(
-        "lambertian", //"mesh_basic",
-        "shaders/lambertian/lambertian.vert",//"shaders/common/mesh_basic.vert",
-        "shaders/lambertian/lambertian.frag"//"shaders/common/mesh_basic.frag"
-    );
-
-    GL_CALL(glUseProgram(mesh_program_));
-
-    const GLint u_view = glGetUniformLocation(mesh_program_, "u_view");
-    const GLint u_proj = glGetUniformLocation(mesh_program_, "u_proj");
-    const GLint u_model =glGetUniformLocation(mesh_program_, "u_model");
-    const GLint u_light_dir = glGetUniformLocation(mesh_program_, "u_light_dir");
-
-    GL_CALL(glUniformMatrix4fv(u_view, 1, GL_FALSE, view.m)); 
-    GL_CALL(glUniformMatrix4fv(u_proj, 1, GL_FALSE, proj.m));
-
-    //downward and rotated a bit on Y
-    GL_CALL(glUniform3f(u_light_dir, 0.0f, -0.866f, -0.3f));
-       
-    for (auto e : registry.view<components::Transform, components::Renderable>()) {
-        if (registry.has<components::Render_Technique_Mirror>(e)) continue;
-        if (registry.has<components::Disabled>(e)) continue;
-
-        auto& transform = registry.get<components::Transform>(e);
-        auto& renderable = registry.get<components::Renderable>(e);
-
-
-        if (renderable.mesh == 0) continue;
-
-        math::Mat4 model = math::Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
-
-        GL_CALL(glUniformMatrix4fv(u_model, 1, GL_FALSE, model.m));
-
-        const graphics::MeshGPU* mesh =  graphics_context_.mesh_manager.bind(renderable.mesh);
-        
-        if (mesh->index_count > 0) {
-            GL_CALL(glDrawElements(mesh->topology, (GLsizei)mesh->index_count, GL_UNSIGNED_INT, nullptr));
-        } else {
-            GL_CALL(glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count));
-        }
-
-        GLenum err = glGetError();
-        if (err != GL_NO_ERROR) std::cout << "GL error: " << err << "\n";
-    }
-
-    // ---- Pass 3: Reflective / mirror surfaces ----
-    {
-        uint32_t refl_program = graphics_context_.shader_manager.getOrLoad(
-            "reflective",
-            "shaders/reflective/reflective.vert",
-            "shaders/reflective/reflective.frag"
-        );
-        GL_CALL(glUseProgram(refl_program));
-
-        GLint u_refl_view   = glGetUniformLocation(refl_program, "u_view");
-        GLint u_refl_proj   = glGetUniformLocation(refl_program, "u_proj");
-        GLint u_refl_model  = glGetUniformLocation(refl_program, "u_model");
-        GLint u_refl_camPos = glGetUniformLocation(refl_program, "u_camPos");
-        GLint u_refl_skybox = glGetUniformLocation(refl_program, "u_skybox");
-
-        GL_CALL(glUniformMatrix4fv(u_refl_view, 1, GL_FALSE, view.m));
-        GL_CALL(glUniformMatrix4fv(u_refl_proj, 1, GL_FALSE, proj.m));
-        GL_CALL(glUniform3f(u_refl_camPos, cam_xform->position.x, cam_xform->position.y, cam_xform->position.z));
-        GL_CALL(glUniform1i(u_refl_skybox, 0));  // texture unit 0
-
-        // Bind the scene cubemap
-        for (auto cubeE : registry.view<components::CubeMap>()) {
-            graphics_context_.texture_manager.bind(registry.get<components::CubeMap>(cubeE).texture_handle);
-            break;
-        }
-
-        for (auto e : registry.view<components::Transform, components::Renderable, components::Render_Technique_Mirror>()) {
-            if (registry.has<components::Disabled>(e)) continue;
-            auto& renderable = registry.get<components::Renderable>(e);
-            if (renderable.mesh == 0) continue;
-
-            auto& transform = registry.get<components::Transform>(e);
-            math::Mat4 model = math::Mat4::modelTRS(transform.position, transform.rotation, transform.scale);
-            GL_CALL(glUniformMatrix4fv(u_refl_model, 1, GL_FALSE, model.m));
-
-            const graphics::MeshGPU* mesh = graphics_context_.mesh_manager.bind(renderable.mesh);
-            if (mesh->index_count > 0)
-                GL_CALL(glDrawElements(mesh->topology, (GLsizei)mesh->index_count, GL_UNSIGNED_INT, nullptr));
-            else
-                GL_CALL(glDrawArrays(mesh->topology, 0, (GLsizei)mesh->vertex_count));
-        }
-
-        GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
-    }
-
-
-
-
-        // ---- World-origin axes (drawn directly, no entity) ----
-        // if (window.grid_visible) {
-        //     Mat4 identity = Mat4::identity();
-        //     GL_CALL(glUniformMatrix4fv(u_grid_model, 1, GL_FALSE, identity.m));
-        //
-        //     static GLuint axes_vao = 0, axes_vbo = 0;
-        //     if (axes_vao == 0) {
-        //         // 6 vertices: X(red), Y(green), Z(blue), each spanning +/-5000
-        //         struct { float x, y, z, r, g, b; } vertices[] = {
-        //             {-5000, 0, 0, 1, 0.2f, 0.2f}, {5000, 0, 0, 1, 0.2f, 0.2f},
-        //             {0, -5000, 0, 0.2f, 1, 0.2f}, {0, 5000, 0, 0.2f, 1, 0.2f},
-        //             {0, 0, -5000, 0.2f, 0.2f, 1}, {0, 0, 5000, 0.2f, 0.2f, 1},
-        //         };
-        //         glGenVertexArrays(1, &axes_vao);
-        //         glGenBuffers(1, &axes_vbo);
-        //         glBindVertexArray(axes_vao);
-        //         glBindBuffer(GL_ARRAY_BUFFER, axes_vbo);
-        //         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-        //         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-        //         glEnableVertexAttribArray(0);
-        //         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-        //         glEnableVertexAttribArray(1);
-        //         glBindVertexArray(0);
-        //     }
-        //     glBindVertexArray(axes_vao);
-        //     glDrawArrays(GL_LINES, 0, 6);
-        // }
-        //
-        // GL_CALL(glDepthFunc(GL_LESS));  // restore
-
+    // ── Passes ──
+    renderCubemapPass(registry, view, proj);
+    renderOpaquePass(registry, view, proj);
+    renderReflectivePass(registry, view, proj, cam_xform->position);
+    renderParticlePass(registry, view, proj);
+    renderVolumePass(registry, view, proj, cam_xform->position);
 }
 
 } // namespace systems

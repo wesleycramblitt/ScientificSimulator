@@ -14,6 +14,7 @@
 #include "components/renderable.hpp"
 #include "components/disabled.hpp"
 #include "components/volume_field.hpp"
+#include "components/particle_cloud.hpp"
 #include "components/mesh_asset.hpp"
 #include "graphics/texture_3d.hpp"
 #include "math/quat.hpp"
@@ -184,6 +185,22 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
             info.current_step += info.steps_per_frame;
             lbm_->integrate_particles(info.steps_per_frame, info.total_steps);
 
+            // Copy particle positions into the registry for the render technique
+            if (lbm_->particles) {
+                lbm_->particles->read_from_device();
+                ulong Np = lbm_->particles->length();
+                auto& pc = registry.has<components::ParticleCloud>(e)
+                    ? registry.get<components::ParticleCloud>(e)
+                    : registry.emplace<components::ParticleCloud>(e);
+                pc.particle_count = (int)Np;
+                pc.positions.resize(Np * 3);
+                for (ulong i = 0; i < Np; i++) {
+                    pc.positions[i*3 + 0] = lbm_->particles->x[i];
+                    pc.positions[i*3 + 1] = lbm_->particles->y[i];
+                    pc.positions[i*3 + 2] = lbm_->particles->z[i];
+                }
+            }
+
             // Upload velocity magnitude to volume texture
             if (registry.has<components::VolumeField>(e)) {
                 auto& vf = registry.get<components::VolumeField>(e);
@@ -222,12 +239,7 @@ void FluidX3DSystem::seedParticles(uint nx, uint ny, uint nz) {
     }
 
     lbm_->particles->write_to_device();
-    printf("nx=%u, first particle x=%f, y=%f, z=%f\n", 
-       nx, lbm_->particles->x[0], lbm_->particles->y[0], lbm_->particles->z[0]);
-
     lbm_->particles->read_from_device();
-    printf("After readback: x=%f, y=%f, z=%f\n",
-       lbm_->particles->x[0], lbm_->particles->y[0], lbm_->particles->z[0]);
 }
 
 } // namespace systems

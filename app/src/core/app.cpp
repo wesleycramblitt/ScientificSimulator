@@ -14,8 +14,6 @@ App::App() : isRunning_(false),
     renderSystem_(graphicsContext_),
     gridSystem_(graphicsContext_),
     fluidX3DSystem_(graphicsContext_),
-    volumeRenderSystem_(graphicsContext_),
-    particleSystem_(graphicsContext_),
     gizmoSystem_(graphicsContext_)
 {
     if (!imguiSystem_.init(window_)) {
