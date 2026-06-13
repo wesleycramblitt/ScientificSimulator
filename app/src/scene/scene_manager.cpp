@@ -74,7 +74,7 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
 
     auto& simInfo = registry.emplace<components::SimulationInfo>(simEntity);
     simInfo.total_steps = 1000000;
-    simInfo.steps_per_frame = 10;  // reasonable default; adjust in UI (1-1000)
+    simInfo.steps_per_frame = 30;  // max per frame; time-accumulator drives actual count
 
     // ── Domain box (defines domain dimensions, world position, and wireframe) ──
     entities::Entity domainBoxEntity = registry.create("WindTunnel Box");
@@ -93,7 +93,6 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     entities::Entity particleEntity = registry.create("WindTunnel Particles");
     registry.emplace<components::ParticleCloud>(particleEntity);
     registry.emplace<components::SimulationReference>(particleEntity, simEntity.id);
-
 
     entities::Entity gridEntity = registry.create("Grid");
     registry.emplace<components::Grid>(gridEntity, 50.0f, math::Quat{0.4f, 0.4f, 0.4f, 0.4f});

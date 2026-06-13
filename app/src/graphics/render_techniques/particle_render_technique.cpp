@@ -58,6 +58,7 @@ void ParticleRenderTechnique::bind() {
         "shaders/particle/particle.vert",
         "shaders/particle/particle.frag");
     GL_CALL(glUseProgram(program_));
+    GL_CALL(glEnable(GL_PROGRAM_POINT_SIZE));  // let vertex shader control point size
 }
 
 void ParticleRenderTechnique::draw(const ParticleDrawData& data) {
@@ -85,12 +86,16 @@ void ParticleRenderTechnique::draw(const ParticleDrawData& data) {
     }
 
     GL_CALL(glBindVertexArray(state_.vao));
-    GL_CALL(glPointSize(2.0f));
+    GL_CALL(glEnable(GL_BLEND));
+    GL_CALL(glBlendFunc(GL_ONE, GL_ONE));  // additive — overlapping particles glow brighter
+    GL_CALL(glDepthMask(GL_FALSE));
     GL_CALL(glDrawArrays(GL_POINTS, 0, data.count));
     GL_CALL(glBindVertexArray(0));
 }
 
 void ParticleRenderTechnique::unbind() {
+    GL_CALL(glDepthMask(GL_TRUE));
+    GL_CALL(glDisable(GL_BLEND));
     GL_CALL(glUseProgram(0));
 }
 

@@ -105,8 +105,8 @@ void Window::getEvents() {
                   event_state.key_up_[ev.key.scancode] = true;
           }
           if (ev.type == SDL_EVENT_MOUSE_MOTION) {
-            mouseRelX = (float)ev.motion.xrel;
-            mouseRelY = (float)ev.motion.yrel;
+            mouseRelX += (float)ev.motion.xrel;
+            mouseRelY += (float)ev.motion.yrel;
           }
           if (ev.type == SDL_EVENT_WINDOW_RESIZED) {
             glViewport(0, 0, ev.window.data1, ev.window.data2);

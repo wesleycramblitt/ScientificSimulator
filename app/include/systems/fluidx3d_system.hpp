@@ -64,8 +64,11 @@ private:
     struct {
         int nx = 0, ny = 0, nz = 0;
         float pos_x = 0, pos_y = 0, pos_z = 0;
+        float rot_w = 1, rot_x = 0, rot_y = 0, rot_z = 0;
+        float scale_x = 1, scale_y = 1, scale_z = 1;
         float mesh_pos_x = 0, mesh_pos_y = 0, mesh_pos_z = 0;
-        float mesh_scale = 1.0f;
+        float mesh_rot_w = 1, mesh_rot_x = 0, mesh_rot_y = 0, mesh_rot_z = 0;
+        float mesh_scale_x = 1, mesh_scale_y = 1, mesh_scale_z = 1;
         float nu = 0.0f;
         float streamwise_velocity = 0.0f;
         uint8_t streamwise_axis = 0;
@@ -80,7 +83,7 @@ private:
     // Time-based stepping: accumulate real dt, run steps when enough
     // time has passed.  Makes the simulation real-time regardless of FPS.
     float sim_time_accumulator_ = 0.0f;
-    static constexpr float target_steps_per_second_ = 300.0f;
+    static constexpr float target_steps_per_second_ = 900.0f;
 
     // LBM step at which the next solver health check is due
     uint32_t next_health_check_ = 0;

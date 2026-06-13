@@ -8,6 +8,7 @@ out vec3 v_color;
 
 void main() {
     gl_Position = u_proj * u_view * u_model * vec4(a_pos, 1.0);
-    gl_PointSize = 3.0;
+    // Larger, softer points — overlapping particles blend additively
+    gl_PointSize = 4.0;
     v_color = a_color;
 }

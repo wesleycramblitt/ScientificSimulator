@@ -11,7 +11,7 @@ struct ParticleCloud {
     std::vector<float> positions;   // interleaved x, y, z
     std::vector<float> colors;      // interleaved r, g, b  (velocity magnitude → color)
     int particle_count = 0;
-    int max_particles  = 10000;
+    int max_particles  = 200000;
 };
 
 } // namespace components

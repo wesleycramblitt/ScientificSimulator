@@ -65,13 +65,13 @@ void FluidX3DSystem::launchAsyncRebuild(entities::Registry& registry,
     // Find mesh asset path and transform
     std::string stl_path;
     float mesh_wx = 0, mesh_wy = 0, mesh_wz = 0;
-    float mesh_sx = 1.0f;
+    float mesh_sx = 1.0f, mesh_sy = 1.0f, mesh_sz = 1.0f;
     math::Quat mesh_rot{1, 0, 0, 0};
     for (auto fe : registry.view<components::MeshAsset, components::Transform>()) {
         stl_path = registry.get<components::MeshAsset>(fe).path;
         auto& mt = registry.get<components::Transform>(fe);
         mesh_wx = mt.position.x; mesh_wy = mt.position.y; mesh_wz = mt.position.z;
-        mesh_sx = mt.scale.x;
+        mesh_sx = mt.scale.x; mesh_sy = mt.scale.y; mesh_sz = mt.scale.z;
         mesh_rot = mt.rotation;
         break;
     }
@@ -109,7 +109,12 @@ void FluidX3DSystem::launchAsyncRebuild(entities::Registry& registry,
 
     // Update solver cache immediately so we don't trigger another rebuild
     solver_cache_ = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz),
-                     dp_x, dp_y, dp_z, mesh_wx, mesh_wy, mesh_wz, mesh_sx,
+                     dp_x, dp_y, dp_z,
+                     dr.w, dr.x, dr.y, dr.z,
+                     ds_x, ds_y, ds_z,
+                     mesh_wx, mesh_wy, mesh_wz,
+                     mesh_rot.w, mesh_rot.x, mesh_rot.y, mesh_rot.z,
+                     mesh_sx, mesh_sy, mesh_sz,
                      nu, target_u, axis, static_cast<int>(particles_N), true};
 
     rebuild_in_progress_ = true;
@@ -373,10 +378,18 @@ void FluidX3DSystem::createSolver(entities::Registry& registry,
     // Cache solver construction parameters to detect runtime edits
     solver_cache_ = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz),
                      xform.position.x, xform.position.y, xform.position.z,
+                     xform.rotation.w, xform.rotation.x, xform.rotation.y, xform.rotation.z,
+                     xform.scale.x, xform.scale.y, xform.scale.z,
                      mesh_xform ? mesh_xform->position.x : 0.0f,
                      mesh_xform ? mesh_xform->position.y : 0.0f,
                      mesh_xform ? mesh_xform->position.z : 0.0f,
+                     mesh_xform ? mesh_xform->rotation.w : 1.0f,
+                     mesh_xform ? mesh_xform->rotation.x : 0.0f,
+                     mesh_xform ? mesh_xform->rotation.y : 0.0f,
+                     mesh_xform ? mesh_xform->rotation.z : 0.0f,
                      mesh_xform ? mesh_xform->scale.x : 1.0f,
+                     mesh_xform ? mesh_xform->scale.y : 1.0f,
+                     mesh_xform ? mesh_xform->scale.z : 1.0f,
                      phys.nu, phys.streamwise_velocity, phys.streamwise_axis,
                      static_cast<int>(particles_N),
                      true};
@@ -440,13 +453,17 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
             float mesh_px = solver_cache_.mesh_pos_x;
             float mesh_py = solver_cache_.mesh_pos_y;
             float mesh_pz = solver_cache_.mesh_pos_z;
-            float mesh_sc = solver_cache_.mesh_scale;
+            float mesh_rw = solver_cache_.mesh_rot_w, mesh_rx = solver_cache_.mesh_rot_x;
+            float mesh_ry = solver_cache_.mesh_rot_y, mesh_rz = solver_cache_.mesh_rot_z;
+            float mesh_sx = solver_cache_.mesh_scale_x;
+            float mesh_sy = solver_cache_.mesh_scale_y;
+            float mesh_sz = solver_cache_.mesh_scale_z;
             for (auto fe : registry.view<components::MeshAsset, components::Transform>()) {
                 auto& mt = registry.get<components::Transform>(fe);
-                mesh_px = mt.position.x;
-                mesh_py = mt.position.y;
-                mesh_pz = mt.position.z;
-                mesh_sc = mt.scale.x;
+                mesh_px = mt.position.x; mesh_py = mt.position.y; mesh_pz = mt.position.z;
+                mesh_rw = mt.rotation.w; mesh_rx = mt.rotation.x;
+                mesh_ry = mt.rotation.y; mesh_rz = mt.rotation.z;
+                mesh_sx = mt.scale.x; mesh_sy = mt.scale.y; mesh_sz = mt.scale.z;
                 break;
             }
 
@@ -456,10 +473,26 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
             bool pos_changed   = (std::abs(solver_cache_.pos_x - xform.position.x) > 1e-4f ||
                                   std::abs(solver_cache_.pos_y - xform.position.y) > 1e-4f ||
                                   std::abs(solver_cache_.pos_z - xform.position.z) > 1e-4f);
+            bool rot_changed   = (std::abs(solver_cache_.rot_w - xform.rotation.w) > 1e-4f ||
+                                  std::abs(solver_cache_.rot_x - xform.rotation.x) > 1e-4f ||
+                                  std::abs(solver_cache_.rot_y - xform.rotation.y) > 1e-4f ||
+                                  std::abs(solver_cache_.rot_z - xform.rotation.z) > 1e-4f);
+            bool scl_changed   = (std::abs(solver_cache_.scale_x - xform.scale.x) > 1e-4f ||
+                                  std::abs(solver_cache_.scale_y - xform.scale.y) > 1e-4f ||
+                                  std::abs(solver_cache_.scale_z - xform.scale.z) > 1e-4f);
+            bool mesh_rot_changed = (std::abs(solver_cache_.mesh_rot_w - mesh_rw) > 1e-4f ||
+                                     std::abs(solver_cache_.mesh_rot_x - mesh_rx) > 1e-4f ||
+                                     std::abs(solver_cache_.mesh_rot_y - mesh_ry) > 1e-4f ||
+                                     std::abs(solver_cache_.mesh_rot_z - mesh_rz) > 1e-4f);
+            bool mesh_scl_changed = (std::abs(solver_cache_.mesh_scale_x - mesh_sx) > 1e-4f ||
+                                     std::abs(solver_cache_.mesh_scale_y - mesh_sy) > 1e-4f ||
+                                     std::abs(solver_cache_.mesh_scale_z - mesh_sz) > 1e-4f);
+
             bool mesh_changed  = (std::abs(solver_cache_.mesh_pos_x - mesh_px) > 1e-4f ||
                                   std::abs(solver_cache_.mesh_pos_y - mesh_py) > 1e-4f ||
                                   std::abs(solver_cache_.mesh_pos_z - mesh_pz) > 1e-4f ||
-                                  std::abs(solver_cache_.mesh_scale - mesh_sc) > 1e-4f);
+                                  mesh_rot_changed || mesh_scl_changed);
+
             bool phys_changed  = (std::abs(solver_cache_.nu - phys.nu) > 1e-6f ||
                                   std::abs(solver_cache_.streamwise_velocity -
                                            phys.streamwise_velocity) > 1e-6f ||
@@ -473,10 +506,12 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
             }
             bool particles_changed = (solver_cache_.max_particles != current_max_particles);
 
-            if (dims_changed || pos_changed || mesh_changed || phys_changed || particles_changed) {
+            if (dims_changed || pos_changed || rot_changed || scl_changed ||
+                mesh_changed || phys_changed || particles_changed) {
                 launchAsyncRebuild(registry, domain, phys, info, xform);
-                std::printf("[LBM] Async rebuild launched (dims=%d pos=%d mesh=%d phys=%d parts=%d)\n",
-                           dims_changed, pos_changed, mesh_changed, phys_changed, particles_changed);
+                std::printf("[LBM] Async rebuild (dims=%d pos=%d rot=%d scl=%d mesh=%d phys=%d parts=%d)\n",
+                           dims_changed, pos_changed, rot_changed, scl_changed,
+                           mesh_changed, phys_changed, particles_changed);
             }
         }
 
@@ -702,18 +737,26 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
                 const float injection_depth = 4.0f;  // stochastic X spread for respawns
                 const float y_min = -ly + margin, y_max = ly - margin;
                 const float z_min = -lz + margin, z_max = lz - margin;
-                const float max_vel = registry.get<components::FluidPhysics>(simEntity).streamwise_velocity * 2.0f;
+                const float ref_speed = registry.get<components::FluidPhysics>(simEntity).streamwise_velocity;
                 bool any_respawned = false;
 
                 if (prev_particle_x_.size() != Np)
                     prev_particle_x_.assign(Np, inlet_x);
 
-                auto velColor = [](float mag, float max) -> std::array<float,3> {
-                    float t = std::min(mag / max, 1.0f);
-                    if      (t < 0.25f) return {0.0f, t*4.0f, 1.0f};
-                    else if (t < 0.50f) return {0.0f, 1.0f, 1.0f-(t-0.25f)*4.0f};
-                    else if (t < 0.75f) return {(t-0.50f)*4.0f, 1.0f, 0.0f};
-                    else                return {1.0f, 1.0f-(t-0.75f)*4.0f, 0.0f};
+                // Diverging colormap: blue (slow) → dim (normal) → red (fast)
+                auto velColor = [](float speed, float ref) -> std::array<float,3> {
+                    float dev = std::clamp((speed - ref) / ref, -1.0f, 1.0f);
+                    if (dev < 0.0f) {
+                        // Slower → blue
+                        float s = -dev;
+                        return {0.0f, 0.15f * s, 0.3f + 0.7f * s};
+                    } else {
+                        // Faster → red → yellow
+                        if (dev < 0.5f)
+                            return {1.6f * dev, 0.0f, 0.0f};
+                        else
+                            return {0.8f + 0.4f * (dev - 0.5f), 0.8f * (dev - 0.5f), 0.0f};
+                    }
                 };
 
                 pc.particle_count = static_cast<int>(Np);
@@ -762,7 +805,7 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
 
                     float vx = lbm_->u.x[idx], vy = lbm_->u.y[idx], vz = lbm_->u.z[idx];
                     float mag = std::sqrt(vx*vx + vy*vy + vz*vz);
-                    auto col = velColor(mag, max_vel);
+                    auto col = velColor(mag, ref_speed);
                     pc.colors[i*3+0] = col[0];  pc.colors[i*3+1] = col[1];  pc.colors[i*3+2] = col[2];
                 }
 
@@ -770,9 +813,9 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
                     lbm_->particles->write_to_device();
             }
 
-            // ── Upload speed-magnitude scalar to volume texture ──
-            // Normalized by target free-stream velocity so uniform flow
-            // shows at ~0.5 opacity and wakes / slow regions are visible.
+            // ── Upload signed speed-deviation scalar to volume texture ──
+            // Negative = slower than free-stream (blue), zero = normal
+            // (transparent), positive = faster (red).
             entities::Entity volumeEntity = findSimChild(simEntity.id, components::VolumeField{});
             if (registry.valid(volumeEntity)) {
                 auto& vf = registry.get<components::VolumeField>(volumeEntity);
@@ -780,7 +823,7 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
                 lbm_->flags.read_from_device();
                 const ulong N = lbm_->get_N();
                 const auto& phys = registry.get<components::FluidPhysics>(simEntity);
-                const float speed_scale = phys.streamwise_velocity * 2.0f;
+                const float ref_speed = phys.streamwise_velocity;
                 std::vector<float> scalar(N);
                 for (ulong i = 0; i < N; i++) {
                     if (lbm_->flags[i] & TYPE_S) {
@@ -795,7 +838,9 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
                         continue;
                     }
                     const float speed = std::sqrt(ux * ux + uy * uy + uz * uz);
-                    scalar[i] = std::clamp(speed / speed_scale, 0.0f, 1.0f);
+                    // Signed deviation, normalized so ±30% of free-stream
+                    // maps to full color; smaller deviations stay near transparent.
+                    scalar[i] = std::clamp((speed - ref_speed) / (ref_speed * 0.3f), -1.0f, 1.0f);
                 }
 
                 if (!vf.interop_ready) {

@@ -11,13 +11,23 @@ uniform sampler3D u_volume;
 uniform ivec3     u_grid_dims;
 uniform float     u_absorption;
 
-// Black-body / flame color: black → red → orange → yellow → white
-vec3 flame(float t) {
-    t = clamp(t, 0.0, 1.0);
-    if (t < 0.25) return mix(vec3(0,0,0), vec3(0.8,0,0), t/0.25);
-    if (t < 0.50) return mix(vec3(0.8,0,0), vec3(1.0,0.5,0), (t-0.25)/0.25);
-    if (t < 0.75) return mix(vec3(1.0,0.5,0), vec3(1.0,1.0,0), (t-0.5)/0.25);
-    return mix(vec3(1.0,1.0,0), vec3(1.0,1.0,1.0), (t-0.75)/0.25);
+// Diverging: blue (slow) → transparent (normal) → red (fast)
+// t ranges from -1 (slow) to +1 (fast), 0 = free-stream speed
+vec3 colormap(float t) {
+    t = clamp(t, -1.0, 1.0);
+    if (t < 0.0) {
+        // Slower: deep blue → light blue → fade to transparent
+        float s = -t;  // 0→1 as we go slower
+        if (s < 0.33) return mix(vec3(0.05, 0.05, 0.1), vec3(0.0, 0.3, 0.7), s / 0.33);
+        if (s < 0.66) return mix(vec3(0.0, 0.3, 0.7), vec3(0.2, 0.6, 1.0), (s - 0.33) / 0.33);
+        else          return mix(vec3(0.2, 0.6, 1.0), vec3(0.6, 0.85, 1.0), (s - 0.66) / 0.34);
+    } else {
+        // Faster: deep red → orange → bright yellow
+        if (t < 0.25) return mix(vec3(0.05, 0.05, 0.1), vec3(0.7, 0.0, 0.0), t / 0.25);
+        if (t < 0.50) return mix(vec3(0.7, 0.0, 0.0), vec3(1.0, 0.4, 0.0), (t - 0.25) / 0.25);
+        if (t < 0.75) return mix(vec3(1.0, 0.4, 0.0), vec3(1.0, 0.8, 0.0), (t - 0.50) / 0.25);
+        else          return mix(vec3(1.0, 0.8, 0.0), vec3(1.0, 1.0, 0.3), (t - 0.75) / 0.25);
+    }
 }
 
 bool ray_box_intersect(vec3 origin, vec3 dir, out float t_entry, out float t_exit) {
@@ -54,11 +64,11 @@ void main() {
         vec3 texcoord = (pos - u_box_min) / box_size;
         if (any(lessThan(texcoord, vec3(0.0))) || any(greaterThan(texcoord, vec3(1.0)))) break;
 
-        float val     = texture(u_volume, texcoord).r;
-        float density = smoothstep(0.02, 0.25, val);
+        float val     = texture(u_volume, texcoord).r;  // -1 (slow) .. 0 .. +1 (fast)
+        float density = smoothstep(0.08, 0.50, abs(val)); // wide transparent zone at free-stream
 
         if (density > 0.0) {
-            vec3  col   = flame(val);
+            vec3  col   = colormap(val);
             float alpha = 1.0 - exp(-u_absorption * density * step_size);
 
             accum.rgb += (1.0 - accum.a) * alpha * col;

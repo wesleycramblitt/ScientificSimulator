@@ -539,7 +539,7 @@ void ImGuiSystem::drawComponentDetails(entities::Registry& registry) {
                                : "Error";
         ImGui::Text("Status:      %s", status_str);
         ImGui::Text("Step:        %u / %u", s.current_step, s.total_steps);
-        ImGui::Text("Target:      300 steps/s (time-synced)");
+        ImGui::Text("Target:      900 steps/s (time-synced)");
         int spf = (int)s.steps_per_frame;
         if (ImGui::DragInt("Max s/frame", &spf, 1.0f, 1, 1000))
             s.steps_per_frame = (uint32_t)spf;

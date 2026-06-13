@@ -55,18 +55,17 @@ void App::Run() {
 
         cameraControllerSystem_.update(scene.registry, window_, dt);
 
-        // ── Simulation (runs before render so the camera stays responsive
-        //     and render always shows the latest solver state) ──
-        fluidX3DSystem_.update(scene.registry, window_, dt);
-
-        // ── Render ──
+        // ── Render scene + UI (always fast, never blocks) ──
         renderSystem_.update(scene.registry, window_, dt);
 
         imguiSystem_.update(scene.registry, window_);
 
-        // ImGuizmo keyboard shortcuts (W/E/R for operation, X for mode)
-        // Called after ImGui so we can check ImGui::GetIO().WantCaptureKeyboard
+        // ImGuizmo (runs during ImGui frame, writes Transforms)
         imguizmoSystem_.update(scene.registry, window_);
+
+        // ── Simulation runs last: sees gizmo edits in the same frame,
+        //     and OpenCL work overlaps with GPU presentation. ──
+        fluidX3DSystem_.update(scene.registry, window_, dt);
 
         window_.swapBuffers();
 
