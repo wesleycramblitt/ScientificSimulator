@@ -8,11 +8,9 @@ namespace exd {
 namespace graphics {
 namespace render_techniques {
 
-// Data bundle for one particle cloud draw call.
-// position/count: raw particle vertex data (interleaved x,y,z).
-// uniforms:       u_model, u_view, u_proj
 struct ParticleDrawData {
     const float* positions;
+    const float* colors;          // may be nullptr for solid-color fallback
     int          count;
     std::unordered_map<std::string, UniformValue> uniforms;
 };

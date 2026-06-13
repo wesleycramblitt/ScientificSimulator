@@ -58,10 +58,6 @@ void App::Run() {
 
         renderSystem_.update(scene.registry, window_, dt);
 
-        // volumeRenderSystem_.update(scene.registry, window_, dt);
-
-        // particleSystem_.update(scene.registry, window_, dt);
-
         gizmoSystem_.update(scene.registry, window_);
 
         fluidX3DSystem_.update(scene.registry, window_, dt);

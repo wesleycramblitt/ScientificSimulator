@@ -1,4 +1,5 @@
 #pragma once
+#include "icomponent.hpp"
 #include "graphics/texture.hpp"
 #include <vector>
 #include <string>

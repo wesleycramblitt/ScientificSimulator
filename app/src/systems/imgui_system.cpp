@@ -20,10 +20,14 @@
 #include "components/plane.hpp"
 #include "components/grid.hpp"
 #include "components/disabled.hpp"
+#include "components/readonly.hpp"
 #include "components/simulation_status.hpp"
 #include "components/fluidx3d_config.hpp"
 #include "components/fluid_domain.hpp"
 #include "components/fluid_physics.hpp"
+#include "components/particle_cloud.hpp"
+#include "components/volume_field.hpp"
+#include "components/simulation_reference.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -136,16 +140,15 @@ void ImGuiSystem::drawEntityList(entities::Registry& registry) {
         if (!registry.valid(e)) continue;
 
         const auto tags = componentTags(registry, e);
-        const bool isCamera = registry.has<components::Camera>(e);
-        const bool isGrid   = registry.has<components::Grid>(e);
+        const bool isReadOnly = registry.has<components::ReadOnly>(e);
 
-        // Disable toggle (Camera entities are immune)
-        bool enabled = !registry.has<components::Disabled>(e);
+        // Entity-level disable toggle (hidden for read-only entities)
+        bool entityEnabled = !registry.has<components::Disabled>(e);
         ImGui::PushID((int)e.id);
-        if (!isCamera && !isGrid) {
-            if (ImGui::Checkbox("##enabled", &enabled)) {
-                if (enabled) registry.remove<components::Disabled>(e);
-                else         registry.emplace<components::Disabled>(e);
+        if (!isReadOnly) {
+            if (ImGui::Checkbox("##enabled", &entityEnabled)) {
+                if (entityEnabled) registry.remove<components::Disabled>(e);
+                else               registry.emplace<components::Disabled>(e);
             }
             ImGui::SameLine();
         }
@@ -153,23 +156,25 @@ void ImGuiSystem::drawEntityList(entities::Registry& registry) {
         ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow;
         if (tags.empty()) node_flags |= ImGuiTreeNodeFlags_Leaf;
 
-        if (!enabled)
+        if (!entityEnabled)
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.35f, 0.35f, 0.35f, 1.0f));
 
         std::string entity_name = e.name + " Entity #" + std::to_string(e.id);
         bool open = ImGui::TreeNodeEx((void*)(intptr_t)e.id, node_flags, entity_name.c_str());
 
-        if (!enabled)
+        if (!entityEnabled)
             ImGui::PopStyleColor();
 
         ImGui::PopID();
 
         if (open) {
             for (const auto* tag : tags) {
+                ImGui::PushID(tag);
                 if (ImGui::Selectable(tag, selected_tag_ == tag && selected_entity_ == e)) {
                     selected_entity_ = e;
                     selected_tag_    = tag;
                 }
+                ImGui::PopID();
             }
             ImGui::TreePop();
         }
@@ -281,126 +286,165 @@ void ImGuiSystem::drawViewportInfo(const entities::Registry& registry, const cor
 // Component details popup
 // -----------------------------------------------------------------------
 
-void ImGuiSystem::drawComponentDetails(const entities::Registry& registry) {
+void ImGuiSystem::drawComponentDetails(entities::Registry& registry) {
     if (!selected_tag_ || !registry.valid(selected_entity_)) return;
 
     const entities::Entity e = selected_entity_;
     const char* tag = selected_tag_;
 
-    ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(340, 0), ImGuiCond_FirstUseEver);
     ImGui::Begin("Component Details", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     ImGui::Text("%s — %s Entity #%u", tag, e.name.c_str(), e.id);
     ImGui::Separator();
 
-    // Transform
+    const bool isReadOnly = registry.has<components::ReadOnly>(e);
+
+    // Disable interaction for read-only entities
+    if (isReadOnly) ImGui::BeginDisabled(true);
+
+    // ── Transform ──
     if (strcmp(tag, "Transform") == 0 && registry.has<components::Transform>(e)) {
         auto& t = registry.get<components::Transform>(e);
-        ImGui::Text("Position:  %.2f, %.2f, %.2f", t.position.x, t.position.y, t.position.z);
-        ImGui::Text("Rotation:  %.3f, %.3f, %.3f, %.3f", t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w);
-        ImGui::Text("Scale:     %.2f, %.2f, %.2f", t.scale.x, t.scale.y, t.scale.z);
+        ImGui::DragFloat3("Position", &t.position.x, 0.1f);
+        ImGui::DragFloat4("Rotation", &t.rotation.x, 0.01f);
+        ImGui::DragFloat3("Scale",    &t.scale.x, 0.01f);
     }
-    // Camera
+    // ── Camera ──
     else if (strcmp(tag, "Camera") == 0 && registry.has<components::Camera>(e)) {
         auto& c = registry.get<components::Camera>(e);
-        ImGui::Text("FOV:       %.2f", c.fov_y_radians);
-        ImGui::Text("Near:      %.3f", c.near_plane);
-        ImGui::Text("Far:       %.1f", c.far_plane);
-        ImGui::Text("Exposure:  %.2f", c.exposure);
+        float fov_deg = c.fov_y_radians * 180.0f / 3.1415926535f;
+        if (ImGui::DragFloat("FOV (deg)", &fov_deg, 0.5f, 1.0f, 179.0f))
+            c.fov_y_radians = fov_deg * 3.1415926535f / 180.0f;
+        ImGui::DragFloat("Near",      &c.near_plane, 0.01f, 0.001f, 1000.0f);
+        ImGui::DragFloat("Far",       &c.far_plane,  10.0f, 0.1f, 100000.0f);
+        ImGui::DragFloat("Exposure",  &c.exposure,   0.01f, 0.0f, 100.0f);
     }
-    // CameraController
+    // ── CameraController ──
     else if (strcmp(tag, "CameraController") == 0 && registry.has<components::CameraController>(e)) {
         auto& cc = registry.get<components::CameraController>(e);
-        ImGui::Text("Move speed:     %.2f", cc.move_speed);
-        ImGui::Text("Sprint mult:    %.2f", cc.sprint_mult);
-        ImGui::Text("Mouse sens:     %.4f", cc.mouse_sensitivity);
-        ImGui::Text("Yaw:            %.2f", cc.yaw);
-        ImGui::Text("Pitch:          %.2f", cc.pitch);
+        ImGui::DragFloat("Move speed",      &cc.move_speed,       0.5f,  0.1f, 500.0f);
+        ImGui::DragFloat("Sprint mult",     &cc.sprint_mult,      0.1f,  1.0f, 10.0f);
+        ImGui::DragFloat("Mouse sens",      &cc.mouse_sensitivity, 0.001f, 0.0f, 1.0f, "%.4f");
+        ImGui::DragFloat("Yaw",             &cc.yaw,              0.5f);
+        ImGui::DragFloat("Pitch",           &cc.pitch,            0.5f);
     }
-    // Renderable
+    // ── Renderable ──
     else if (strcmp(tag, "Renderable") == 0 && registry.has<components::Renderable>(e)) {
         auto& r = registry.get<components::Renderable>(e);
-        ImGui::Text("Mesh handle:  %u", r.mesh);
+        int mesh = (int)r.mesh;
+        ImGui::InputInt("Mesh handle", &mesh, 0, 0, ImGuiInputTextFlags_ReadOnly);
     }
-    // MeshAsset
+    // ── MeshAsset ──
     else if (strcmp(tag, "MeshAsset") == 0 && registry.has<components::MeshAsset>(e)) {
         auto& ma = registry.get<components::MeshAsset>(e);
         ImGui::Text("Path:  %s", ma.path.c_str());
     }
-    // Cube
+    // ── Cube ──
     else if (strcmp(tag, "Cube") == 0 && registry.has<components::Cube>(e)) {
-        ImGui::Text("Size:  %.2f", registry.get<components::Cube>(e).size);
+        auto& c = registry.get<components::Cube>(e);
+        ImGui::DragFloat("Size", &c.size, 0.01f, 0.01f, 1000.0f);
     }
-    // Sphere
+    // ── Sphere ──
     else if (strcmp(tag, "Sphere") == 0 && registry.has<components::Sphere>(e)) {
-        ImGui::Text("Radius:  %.2f", registry.get<components::Sphere>(e).radius);
+        auto& s = registry.get<components::Sphere>(e);
+        ImGui::DragFloat("Radius", &s.radius, 0.01f, 0.01f, 1000.0f);
     }
-    // Box
+    // ── Box ──
     else if (strcmp(tag, "Box") == 0 && registry.has<components::Box>(e)) {
         auto& b = registry.get<components::Box>(e);
-        ImGui::Text("Half extents:  %.2f, %.2f, %.2f", b.halfExtents.x, b.halfExtents.y, b.halfExtents.z);
+        ImGui::DragFloat3("Half extents", &b.halfExtents.x, 0.01f, 0.01f, 1000.0f);
     }
-    // Capsule
+    // ── Capsule ──
     else if (strcmp(tag, "Capsule") == 0 && registry.has<components::Capsule>(e)) {
         auto& c = registry.get<components::Capsule>(e);
-        ImGui::Text("Radius:      %.2f", c.radius);
-        ImGui::Text("Half height: %.2f", c.halfHeight);
+        ImGui::DragFloat("Radius",      &c.radius,     0.01f, 0.01f, 1000.0f);
+        ImGui::DragFloat("Half height", &c.halfHeight, 0.01f, 0.01f, 1000.0f);
     }
-    // Cylinder
+    // ── Cylinder ──
     else if (strcmp(tag, "Cylinder") == 0 && registry.has<components::Cylinder>(e)) {
         auto& c = registry.get<components::Cylinder>(e);
-        ImGui::Text("Radius:      %.2f", c.radius);
-        ImGui::Text("Half height: %.2f", c.halfHeight);
+        ImGui::DragFloat("Radius",      &c.radius,     0.01f, 0.01f, 1000.0f);
+        ImGui::DragFloat("Half height", &c.halfHeight, 0.01f, 0.01f, 1000.0f);
     }
-    // Plane
+    // ── Plane ──
     else if (strcmp(tag, "Plane") == 0 && registry.has<components::Plane>(e)) {
         auto& p = registry.get<components::Plane>(e);
-        ImGui::Text("Width:   %.2f", p.width);
-        ImGui::Text("Height:  %.2f", p.height);
+        ImGui::DragFloat("Width",  &p.width,  0.01f, 0.01f, 1000.0f);
+        ImGui::DragFloat("Height", &p.height, 0.01f, 0.01f, 1000.0f);
     }
-    // Grid
+    // ── Grid ──
     else if (strcmp(tag, "Grid") == 0 && registry.has<components::Grid>(e)) {
         auto& g = registry.get<components::Grid>(e);
-        ImGui::Text("Spacing:    %.1f", g.spacing);
-        ImGui::Text("Color:      %.2f, %.2f, %.2f", g.color.x, g.color.y, g.color.z);
+        ImGui::DragFloat("Spacing", &g.spacing, 0.1f, 0.1f, 1000.0f);
+        ImGui::DragFloat3("Color", &g.color.x, 0.01f, 0.0f, 1.0f);
     }
-    // CubeMap
+    // ── CubeMap ──
     else if (strcmp(tag, "CubeMap") == 0 && registry.has<components::CubeMap>(e)) {
         auto& cm = registry.get<components::CubeMap>(e);
         ImGui::Text("Name:           %s", cm.name.c_str());
         ImGui::Text("Texture handle: %u", cm.texture_handle);
         ImGui::Text("Faces:          %zu", cm.faces.size());
     }
-    // SimulationDomain
+    // ── SimulationDomain ──
     else if (strcmp(tag, "SimulationDomain") == 0 && registry.has<components::SimulationDomain>(e)) {
         auto& d = registry.get<components::SimulationDomain>(e);
-        ImGui::Text("Grid:  %d x %d x %d", d.nx, d.ny, d.nz);
+        ImGui::DragInt("NX", &d.nx, 1.0f, 1, 2048);
+        ImGui::DragInt("NY", &d.ny, 1.0f, 1, 2048);
+        ImGui::DragInt("NZ", &d.nz, 1.0f, 1, 2048);
     }
-    // FluidPhysics
+    // ── FluidPhysics ──
     else if (strcmp(tag, "FluidPhysics") == 0 && registry.has<components::FluidPhysics>(e)) {
         auto& p = registry.get<components::FluidPhysics>(e);
-        ImGui::Text("Viscosity:        %.4f", p.nu);
-        ImGui::Text("Stream velocity:  %.3f", p.streamwise_velocity);
-        ImGui::Text("Stream axis:      %u",   p.streamwise_axis);
-        ImGui::Text("Force:            %.4f, %.4f, %.4f", p.fx, p.fy, p.fz);
-        ImGui::Text("Surface tension:  %.4f", p.sigma);
+        ImGui::DragFloat("Viscosity",       &p.nu,                0.0001f, 0.0f, 1.0f, "%.4f");
+        ImGui::DragFloat("Stream velocity", &p.streamwise_velocity, 0.001f, -1.0f, 1.0f, "%.3f");
+        ImGui::DragInt("Stream axis",       (int*)&p.streamwise_axis, 1.0f, 0, 2);
+        ImGui::DragFloat("Force X", &p.fx, 0.0001f, -1.0f, 1.0f, "%.4f");
+        ImGui::DragFloat("Force Y", &p.fy, 0.0001f, -1.0f, 1.0f, "%.4f");
+        ImGui::DragFloat("Force Z", &p.fz, 0.0001f, -1.0f, 1.0f, "%.4f");
+        ImGui::DragFloat("Surf tension",   &p.sigma,             0.0001f, 0.0f, 1.0f, "%.4f");
     }
-    // FluidX3DSolverConfig
+    // ── FluidX3DSolverConfig ──
     else if (strcmp(tag, "FluidX3DSolverConfig") == 0 && registry.has<components::FluidX3DSolverConfig>(e)) {
         auto& c = registry.get<components::FluidX3DSolverConfig>(e);
-        ImGui::Text("Velocity set:  %u", c.velocity_set);
-        ImGui::Text("Collision:     %u", c.collision);
-        ImGui::Text("Precision:     %u", c.precision);
-        ImGui::Text("Subdivisions:  %u x %u x %u", c.dx, c.dy, c.dz);
+        ImGui::DragInt("Velocity set", (int*)&c.velocity_set, 1.0f, 0, 255);
+        ImGui::DragInt("Collision",    (int*)&c.collision,    1.0f, 0, 255);
+        ImGui::DragInt("Precision",    (int*)&c.precision,    1.0f, 0, 255);
+        ImGui::DragInt("DX", (int*)&c.dx, 1.0f, 1, 128);
+        ImGui::DragInt("DY", (int*)&c.dy, 1.0f, 1, 128);
+        ImGui::DragInt("DZ", (int*)&c.dz, 1.0f, 1, 128);
         ImGui::Text("Extensions:    0x%X", c.extensions);
     }
-    // SimulationInfo
+    // ── SimulationInfo ──
     else if (strcmp(tag, "SimulationInfo") == 0 && registry.has<components::SimulationInfo>(e)) {
         auto& s = registry.get<components::SimulationInfo>(e);
-        ImGui::Text("Status:      %s", s.status == components::SimulationStatus::Running ? "Running" : s.status == components::SimulationStatus::Stopped ? "Stopped" : "Error");
+        const char* status_str = s.status == components::SimulationStatus::Running ? "Running"
+                               : s.status == components::SimulationStatus::Stopped ? "Stopped" : "Error";
+        ImGui::Text("Status:      %s", status_str);
         ImGui::Text("Step:        %u / %u", s.current_step, s.total_steps);
-        ImGui::Text("S/frame:     %u", s.steps_per_frame);
+        int spf = (int)s.steps_per_frame;
+        if (ImGui::DragInt("S/frame", &spf, 1.0f, 1, 1000))
+            s.steps_per_frame = (uint32_t)spf;
     }
+    // ── SimulationReference ──
+    else if (strcmp(tag, "SimulationReference") == 0 && registry.has<components::SimulationReference>(e)) {
+        auto& sr = registry.get<components::SimulationReference>(e);
+        int sim_id = (int)sr.simulation_entity_id;
+        ImGui::InputInt("Sim Entity ID", &sim_id, 0, 0, ImGuiInputTextFlags_ReadOnly);
+    }
+    // ── ParticleCloud ──
+    else if (strcmp(tag, "ParticleCloud") == 0 && registry.has<components::ParticleCloud>(e)) {
+        auto& pc = registry.get<components::ParticleCloud>(e);
+        ImGui::Text("Particles:  %d / %d", pc.particle_count, pc.max_particles);
+    }
+    // ── VolumeField ──
+    else if (strcmp(tag, "VolumeField") == 0 && registry.has<components::VolumeField>(e)) {
+        auto& vf = registry.get<components::VolumeField>(e);
+        ImGui::Text("Texture:    %u", vf.texture_handle);
+        ImGui::Text("Ready:      %s", vf.interop_ready ? "yes" : "no");
+    }
+
+    if (isReadOnly) ImGui::EndDisabled();
 
     // Close button
     if (ImGui::Button("Close")) {
@@ -417,24 +461,30 @@ void ImGuiSystem::drawComponentDetails(const entities::Registry& registry) {
 std::vector<const char*> ImGuiSystem::componentTags(const entities::Registry& registry, entities::Entity e) {
     std::vector<const char*> tags;
 
-    if (registry.has<components::Transform>(e))         tags.push_back("Transform");
-    if (registry.has<components::Camera>(e))            tags.push_back("Camera");
-    if (registry.has<components::CameraController>(e))  tags.push_back("CameraController");
-    if (registry.has<components::Renderable>(e))        tags.push_back("Renderable");
-    if (registry.has<components::CubeMap>(e))           tags.push_back("CubeMap");
-    if (registry.has<components::MeshAsset>(e))         tags.push_back("MeshAsset");
-    if (registry.has<components::Cube>(e))              tags.push_back("Cube");
-    if (registry.has<components::Sphere>(e))            tags.push_back("Sphere");
-    if (registry.has<components::Box>(e))               tags.push_back("Box");
-    if (registry.has<components::Capsule>(e))           tags.push_back("Capsule");
-    if (registry.has<components::Cylinder>(e))          tags.push_back("Cylinder");
-    if (registry.has<components::Plane>(e))             tags.push_back("Plane");
-    if (registry.has<components::Grid>(e))              tags.push_back("Grid");
-    if (registry.has<components::SimulationDomain>(e))       tags.push_back("SimulationDomain");
-    if (registry.has<components::FluidPhysics>(e))           tags.push_back("FluidPhysics");
-    if (registry.has<components::FluidX3DSolverConfig>(e))   tags.push_back("FluidX3DSolverConfig");
-    if (registry.has<components::SimulationInfo>(e))         tags.push_back("SimulationInfo");
-    if (registry.has<components::Disabled>(e))               tags.push_back("Disabled");
+    // Use try_get (not has) so disabled components still appear in the tree.
+    // has<T>() returns false when enabled==false, which would make them invisible
+    // with no way to re-enable.  Downstream systems still filter via has<T>().
+    if (registry.try_get<components::Transform>(e))         tags.push_back("Transform");
+    if (registry.try_get<components::Camera>(e))            tags.push_back("Camera");
+    if (registry.try_get<components::CameraController>(e))  tags.push_back("CameraController");
+    if (registry.try_get<components::Renderable>(e))        tags.push_back("Renderable");
+    if (registry.try_get<components::CubeMap>(e))           tags.push_back("CubeMap");
+    if (registry.try_get<components::MeshAsset>(e))         tags.push_back("MeshAsset");
+    if (registry.try_get<components::Cube>(e))              tags.push_back("Cube");
+    if (registry.try_get<components::Sphere>(e))            tags.push_back("Sphere");
+    if (registry.try_get<components::Box>(e))               tags.push_back("Box");
+    if (registry.try_get<components::Capsule>(e))           tags.push_back("Capsule");
+    if (registry.try_get<components::Cylinder>(e))          tags.push_back("Cylinder");
+    if (registry.try_get<components::Plane>(e))             tags.push_back("Plane");
+    if (registry.try_get<components::Grid>(e))              tags.push_back("Grid");
+    if (registry.try_get<components::SimulationDomain>(e))       tags.push_back("SimulationDomain");
+    if (registry.try_get<components::FluidPhysics>(e))           tags.push_back("FluidPhysics");
+    if (registry.try_get<components::FluidX3DSolverConfig>(e))   tags.push_back("FluidX3DSolverConfig");
+    if (registry.try_get<components::SimulationInfo>(e))         tags.push_back("SimulationInfo");
+    if (registry.try_get<components::SimulationReference>(e))    tags.push_back("SimulationReference");
+    if (registry.try_get<components::ParticleCloud>(e))          tags.push_back("ParticleCloud");
+    if (registry.try_get<components::VolumeField>(e))            tags.push_back("VolumeField");
+    if (registry.try_get<components::Disabled>(e))               tags.push_back("Disabled");
 
     return tags;
 }

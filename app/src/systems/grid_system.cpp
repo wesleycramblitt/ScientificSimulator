@@ -13,6 +13,7 @@ GridSystem::GridSystem(graphics::GraphicsContext& graphicsContext) : graphicsCon
 void GridSystem::update(entities::Registry& registry, core::Window& window) {
     for (auto e : registry.view<components::Grid, components::Transform>()) {
         if (registry.has<components::Disabled>(e)) continue;
+        auto& grid = registry.get<components::Grid>(e);
 
         if (window.grid_visible && !registry.has<components::Renderable>(e)) {
             graphics::Mesh mesh = createMesh(registry.get<components::Grid>(e));

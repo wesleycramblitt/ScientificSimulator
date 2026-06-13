@@ -1,11 +1,10 @@
 #pragma once
-#include "icomponent.hpp"
 
 namespace exd {
 namespace components {
 
-struct Render_Technique_Common {
-};
+/// Concept / interface marker for components.
+struct IComponent {};
 
 } // namespace components
 } // namespace exd

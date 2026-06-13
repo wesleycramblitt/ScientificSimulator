@@ -16,10 +16,12 @@
 #include "components/fluid_physics.hpp"
 #include "components/fluidx3d_config.hpp"
 #include "components/disabled.hpp"
+#include "components/readonly.hpp"
 #include "fluidx3d.h"
 #include "components/simulation_status.hpp"
 #include "components/volume_field.hpp"
 #include "components/particle_cloud.hpp"
+#include "components/simulation_reference.hpp"
 
 namespace exd {
 namespace scene {
@@ -38,6 +40,7 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     registry.emplace<components::Camera>(e);
     registry.emplace<components::Transform>(e, math::Vec3(0,45,200) );  // outside domain looking in
     registry.emplace<components::CameraController>(e);
+    registry.emplace<components::ReadOnly>(e);
     //
     // entities::Entity e2 = registry.create();
     // registry.emplace<components::Transform>(e2);
@@ -57,8 +60,8 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     registry.emplace<components::Render_Technique_Mirror>(e5);
     registry.emplace<components::Transform>(e5, math::Vec3(0, 80, 0), math::Quat(1,0,0,0), math::Vec3(1, 1, 1));
 
+    // ── Simulation (config only: solver, physics, status) ──
     entities::Entity simEntity = registry.create("WindTunnel");
-    registry.emplace<components::SimulationDomain>(simEntity, 344, 128, 128);
 
     auto& solverCfg = registry.emplace<components::FluidX3DSolverConfig>(simEntity);
     solverCfg.extensions = FLUIDX3D_EXT_VOLUME_FORCE;
@@ -67,16 +70,31 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
     auto& simInfo = registry.emplace<components::SimulationInfo>(simEntity);
     simInfo.total_steps = 5000;
     simInfo.steps_per_frame = 10;
-    registry.emplace<components::Transform>(simEntity, math::Vec3(0, 80, 0),math::Quat(1,0,0,0), math::Vec3(1,1,1));
-    registry.emplace<components::Render_Technique_Lambertian>(simEntity);  // domain box mesh
-    // registry.emplace<components::VolumeField>(simEntity);  // enable volume ray-march
-    registry.emplace<components::ParticleCloud>(simEntity);  // particle tracers
+
+    // ── Domain box (defines domain dimensions, world position, and wireframe) ──
+    entities::Entity domainBoxEntity = registry.create("WindTunnel Box");
+    registry.emplace<components::SimulationDomain>(domainBoxEntity, 344, 128, 128);
+    registry.emplace<components::Transform>(domainBoxEntity,
+        math::Vec3(0, 80, 0), math::Quat(1,0,0,0), math::Vec3(1,1,1));
+    registry.emplace<components::Render_Technique_Lambertian>(domainBoxEntity);
+    registry.emplace<components::SimulationReference>(domainBoxEntity, simEntity.id);
+
+    // ── Volume ray-march proxy (position derived from domain box) ──
+    entities::Entity volumeEntity = registry.create("WindTunnel Volume");
+    registry.emplace<components::VolumeField>(volumeEntity);
+    registry.emplace<components::SimulationReference>(volumeEntity, simEntity.id);
+
+    // ── Particle cloud (position derived from domain box) ──
+    entities::Entity particleEntity = registry.create("WindTunnel Particles");
+    registry.emplace<components::ParticleCloud>(particleEntity);
+    registry.emplace<components::SimulationReference>(particleEntity, simEntity.id);
 
 
     entities::Entity gridEntity = registry.create("Grid");
     registry.emplace<components::Grid>(gridEntity, 50.0f, math::Quat{0.4f, 0.4f, 0.4f, 0.4f});
     registry.emplace<components::Transform>(gridEntity);
     registry.emplace<components::Render_Technique_Lambertian>(gridEntity);
+    registry.emplace<components::ReadOnly>(gridEntity);
 
 
 

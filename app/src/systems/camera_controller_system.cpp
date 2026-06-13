@@ -19,8 +19,9 @@ void CameraControllerSystem::update(entities::Registry& registry, core::Window& 
    components::Transform* cam_xform = nullptr;
 
     for (auto e : registry.view<components::Camera, components::CameraController, components::Transform>()) {
+         auto& cc = registry.get<components::CameraController>(e);
          camera = &registry.get<components::Camera>(e);
-         cameraController = &registry.get<components::CameraController>(e);
+         cameraController = &cc;
          cam_xform = &registry.get<components::Transform>(e);
          break;
     }

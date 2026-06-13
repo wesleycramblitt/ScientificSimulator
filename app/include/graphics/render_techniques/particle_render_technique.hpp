@@ -22,15 +22,15 @@ private:
     struct GLState {
         GLuint vao = 0;
         GLuint vbo = 0;
-        int    count = 0;
+        int    capacity = 0;       // allocated size, may be > drawn count
     };
 
-    void initGL(GLState& s, int particle_count);
-    void uploadPositions(GLState& s, const float* positions, int count);
+    void initGL(GLState& s, int capacity);
+    void upload(GLState& s, const float* positions, const float* colors, int count);
 
     graphics::GraphicsContext& ctx_;
     uint32_t program_ = 0;
-    std::unordered_map<uint32_t, GLState> per_entity_;
+    std::unordered_map<uint32_t, GLState> states_;
     uint32_t next_key_ = 0;
 };
 

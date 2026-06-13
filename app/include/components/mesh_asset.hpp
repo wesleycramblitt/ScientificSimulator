@@ -1,4 +1,5 @@
 #pragma once
+#include "icomponent.hpp"
 #include <string>
 
 namespace exd {

@@ -3,7 +3,7 @@
 namespace exd {
 namespace components {
 
-/// Tag component. When present on an entity, systems skip it.
+/// Tag component. When present on an entity, systems skip it entirely.
 struct Disabled {};
 
 } // namespace components

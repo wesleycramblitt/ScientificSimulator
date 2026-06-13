@@ -2,6 +2,7 @@
 #include "entities/registry.hpp"
 #include "core/window.hpp"
 #include <vector>
+#include <cstdint>
 
 // External library type (not in exd namespace)
 class LBM;
@@ -29,17 +30,18 @@ public:
 
 private:
     graphics::Mesh createDomainBox(const components::SimulationDomain& domain, const components::Transform& xform);
-    void createSolver(entities::Registry& registry, entities::Entity e,
+    void createSolver(entities::Registry& registry,
                       const components::SimulationDomain& domain,
-                      const components::FluidX3DSolverConfig& cfg,
                       const components::FluidPhysics& phys,
                       components::SimulationInfo& info,
                       const components::Transform& xform);
-    void seedParticles(uint nx, uint ny, uint nz);
 
     graphics::GraphicsContext& graphicsContext_;
 
     LBM*         lbm_ = nullptr;
+
+    // Cache last-known domain dimensions so the box mesh regenerates on edit
+    struct { int nx = 0, ny = 0, nz = 0; } domain_cache_;
 };
 
 } // namespace systems

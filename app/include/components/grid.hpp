@@ -1,4 +1,5 @@
 #pragma once
+#include "icomponent.hpp"
 #include "math/vec3.hpp"
 #include "math/quat.hpp"
 

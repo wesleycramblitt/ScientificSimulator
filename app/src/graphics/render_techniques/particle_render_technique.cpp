@@ -1,6 +1,8 @@
 #include "graphics/render_techniques/particle_render_technique.hpp"
 #include "common/macros.hpp"
 #include <cstdio>
+#include <cstring>
+#include <vector>
 
 namespace exd {
 namespace graphics {
@@ -9,23 +11,44 @@ namespace render_techniques {
 ParticleRenderTechnique::ParticleRenderTechnique(graphics::GraphicsContext& ctx)
     : ctx_(ctx) {}
 
-void ParticleRenderTechnique::initGL(GLState& s, int particle_count) {
+void ParticleRenderTechnique::initGL(GLState& s, int capacity) {
     GL_CALL(glGenVertexArrays(1, &s.vao));
     GL_CALL(glGenBuffers(1, &s.vbo));
     GL_CALL(glBindVertexArray(s.vao));
     GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, s.vbo));
-    GL_CALL(glBufferData(GL_ARRAY_BUFFER, (size_t)particle_count * 3 * sizeof(float),
+    // 6 floats per particle: x,y,z  r,g,b
+    GL_CALL(glBufferData(GL_ARRAY_BUFFER, (size_t)capacity * 6 * sizeof(float),
                          nullptr, GL_DYNAMIC_DRAW));
-    GL_CALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0));
+    GL_CALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6*sizeof(float), (void*)0));
     GL_CALL(glEnableVertexAttribArray(0));
+    GL_CALL(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6*sizeof(float), (void*)(3*sizeof(float))));
+    GL_CALL(glEnableVertexAttribArray(1));
     GL_CALL(glBindVertexArray(0));
-    s.count = particle_count;
+    s.capacity = capacity;
 }
 
-void ParticleRenderTechnique::uploadPositions(GLState& s,
-                                               const float* positions, int count) {
+void ParticleRenderTechnique::upload(GLState& s,
+                                      const float* positions,
+                                      const float* colors, int count) {
+    // Interleave position + color into a single upload
+    std::vector<float> interleaved(count * 6);
+    for (int i = 0; i < count; ++i) {
+        interleaved[i*6 + 0] = positions[i*3 + 0];
+        interleaved[i*6 + 1] = positions[i*3 + 1];
+        interleaved[i*6 + 2] = positions[i*3 + 2];
+        if (colors) {
+            interleaved[i*6 + 3] = colors[i*3 + 0];
+            interleaved[i*6 + 4] = colors[i*3 + 1];
+            interleaved[i*6 + 5] = colors[i*3 + 2];
+        } else {
+            // fallback: orange
+            interleaved[i*6 + 3] = 1.0f;
+            interleaved[i*6 + 4] = 0.6f;
+            interleaved[i*6 + 5] = 0.1f;
+        }
+    }
     GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, s.vbo));
-    GL_CALL(glBufferSubData(GL_ARRAY_BUFFER, 0, count * 3 * sizeof(float), positions));
+    GL_CALL(glBufferSubData(GL_ARRAY_BUFFER, 0, count * 6 * sizeof(float), interleaved.data()));
     GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, 0));
 }
 
@@ -40,16 +63,14 @@ void ParticleRenderTechnique::bind() {
 void ParticleRenderTechnique::draw(const ParticleDrawData& data) {
     if (!data.positions || data.count == 0) return;
 
-    // Lazy-init or re-init GL state for this call site
     uint32_t key = next_key_++;
-    auto& s = per_entity_[key];
-    if (s.vao == 0 || s.count < data.count) {
+    auto& s = states_[key];
+    if (s.vao == 0 || s.capacity < data.count) {
         if (s.vao) { GL_CALL(glDeleteVertexArrays(1, &s.vao)); GL_CALL(glDeleteBuffers(1, &s.vbo)); }
         initGL(s, data.count);
     }
-    uploadPositions(s, data.positions, data.count);
+    upload(s, data.positions, data.colors, data.count);
 
-    // Apply uniforms
     for (const auto& [name, value] : data.uniforms) {
         GLint loc = glGetUniformLocation(program_, name.c_str());
         std::visit([loc](const auto& v) {

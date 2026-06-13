@@ -31,7 +31,7 @@ public:
 private:
     void drawEntityList(entities::Registry& registry);
     void drawViewportInfo(const entities::Registry& registry, const core::Window& window);
-    void drawComponentDetails(const entities::Registry& registry);
+    void drawComponentDetails(entities::Registry& registry);
 
     // Checks known component types for an entity, returns human-readable labels.
     static std::vector<const char*> componentTags(const entities::Registry& registry, entities::Entity e);

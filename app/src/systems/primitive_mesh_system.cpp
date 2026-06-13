@@ -12,13 +12,23 @@ PrimitiveMeshSystem::PrimitiveMeshSystem(graphics::GraphicsContext& graphicsCont
 void PrimitiveMeshSystem::update(entities::Registry& registry, core::Window& window) {
  
     for (auto e : registry.view<components::Cube>()) {
-        auto cube = registry.get<components::Cube>(e);
-        auto mesh = createMesh(cube);
-        
-        int32_t mesh_handle = graphicsContext_.mesh_manager.create(mesh);
-        registry.emplace<components::Renderable>(e, mesh_handle);
+        auto& cube = registry.get<components::Cube>(e);
 
-        
+        // Only regenerate mesh when size actually changes
+        auto it = cube_size_cache_.find(e.id);
+        if (it != cube_size_cache_.end() && it->second == cube.size)
+            continue;
+
+        auto mesh = createMesh(cube);
+        uint32_t handle = graphicsContext_.mesh_manager.create(mesh);
+
+        if (registry.has<components::Renderable>(e)) {
+            registry.get<components::Renderable>(e).mesh = handle;
+        } else {
+            registry.emplace<components::Renderable>(e, handle);
+        }
+
+        cube_size_cache_[e.id] = cube.size;
     }
 }
 

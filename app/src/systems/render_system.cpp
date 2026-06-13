@@ -11,7 +11,7 @@
 #include "components/fluid_domain.hpp"
 #include "components/particle_cloud.hpp"
 #include "components/volume_field.hpp"
-#include "components/volume_renderable.hpp"
+#include "components/simulation_reference.hpp"
 #include "graphics/render_techniques/renderable.hpp"
 #include "graphics/render_techniques/particle_draw_data.hpp"
 #include "graphics/render_techniques/volume_draw_data.hpp"
@@ -57,7 +57,7 @@ static math::Vec3 computeWorldBounds(const components::Transform& xform,
 
 void RenderSystem::ensureVolumeProxy(entities::Registry& registry,
                                       entities::Entity e, int nx, int ny, int nz) {
-    if (registry.has<components::VolumeRenderable>(e)) return;
+    if (registry.has<components::Renderable>(e)) return;
 
     const float hx = (float)nx * 0.5f, hy = (float)ny * 0.5f, hz = (float)nz * 0.5f;
     graphics::Mesh mesh;
@@ -80,7 +80,7 @@ void RenderSystem::ensureVolumeProxy(entities::Registry& registry,
     tri(7,6,2); tri(7,2,3); tri(0,1,5); tri(0,5,4);
 
     uint32_t handle = ctx_.mesh_manager.create(mesh);
-    registry.emplace<components::VolumeRenderable>(e, handle);
+    registry.emplace<components::Renderable>(e, handle);
 }
 
 void RenderSystem::renderCubemapPass(entities::Registry& registry,
@@ -132,8 +132,8 @@ void RenderSystem::renderReflectivePass(entities::Registry& registry,
 
     uint32_t cubemap_tex = 0;
     for (auto e : registry.view<components::CubeMap, components::Render_Technique_CubeMap>()) {
-        cubemap_tex = registry.get<components::CubeMap>(e).texture_handle;
-        break;
+        auto& cm = registry.get<components::CubeMap>(e);
+        cubemap_tex = cm.texture_handle; break;
     }
     if (cubemap_tex == 0) return;
 
@@ -152,8 +152,7 @@ void RenderSystem::renderReflectivePass(entities::Registry& registry,
 void RenderSystem::renderParticlePass(entities::Registry& registry,
                                        const math::Mat4& view,
                                        const math::Mat4& proj) {
-    auto v = registry.view<components::Transform, components::ParticleCloud,
-                            components::SimulationDomain>();
+    auto v = registry.view<components::ParticleCloud, components::SimulationReference>();
     if (v.begin() == v.end()) return;
 
     particleTechnique_.bind();
@@ -161,10 +160,23 @@ void RenderSystem::renderParticlePass(entities::Registry& registry,
         if (registry.has<components::Disabled>(e)) continue;
         auto& pc = registry.get<components::ParticleCloud>(e);
         if (pc.particle_count == 0 || pc.positions.empty()) continue;
-        auto& xform = registry.get<components::Transform>(e);
+
+        // Get Transform from the domain box entity via SimulationReference
+        auto simId = registry.get<components::SimulationReference>(e).simulation_entity_id;
+        const components::Transform* xform = nullptr;
+        for (auto db : registry.view<components::Transform, components::SimulationReference>()) {
+            if (registry.get<components::SimulationReference>(db).simulation_entity_id == simId) {
+                xform = &registry.get<components::Transform>(db);
+                break;
+            }
+        }
+        if (!xform) continue;
+
         graphics::render_techniques::ParticleDrawData data{
-            pc.positions.data(), pc.particle_count,
-            {{"u_model", math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale)},
+            pc.positions.data(),
+            pc.colors.empty() ? nullptr : pc.colors.data(),
+            pc.particle_count,
+            {{"u_model", math::Mat4::modelTRS(xform->position, xform->rotation, xform->scale)},
              {"u_view", view}, {"u_proj", proj}}
         };
         particleTechnique_.draw(data);
@@ -176,28 +188,41 @@ void RenderSystem::renderVolumePass(entities::Registry& registry,
                                      const math::Mat4& view,
                                      const math::Mat4& proj,
                                      const math::Vec3& cam_pos) {
-    auto v = registry.view<components::Transform, components::VolumeField,
-                            components::SimulationDomain>();
+    auto v = registry.view<components::VolumeField, components::SimulationReference>();
     if (v.begin() == v.end()) return;
 
     volumeTechnique_.bind();
     for (auto e : v) {
         if (registry.has<components::Disabled>(e)) continue;
-        auto& xform  = registry.get<components::Transform>(e);
-        auto& vol    = registry.get<components::VolumeField>(e);
-        auto& domain = registry.get<components::SimulationDomain>(e);
+        auto& vol = registry.get<components::VolumeField>(e);
         if (!vol.interop_ready || vol.texture_handle == 0) continue;
+
+        auto simId = registry.get<components::SimulationReference>(e).simulation_entity_id;
+
+        // Find the domain box entity (has Transform + SimulationDomain + SimulationReference → sim)
+        entities::Entity domainBoxEntity{};
+        for (auto db : registry.view<components::Transform, components::SimulationDomain,
+                                       components::SimulationReference>()) {
+            if (registry.get<components::SimulationReference>(db).simulation_entity_id == simId) {
+                domainBoxEntity = db;
+                break;
+            }
+        }
+        if (!registry.valid(domainBoxEntity)) continue;
+
+        auto& xform  = registry.get<components::Transform>(domainBoxEntity);
+        auto& domain = registry.get<components::SimulationDomain>(domainBoxEntity);
 
         ensureVolumeProxy(registry, e, domain.nx, domain.ny, domain.nz);
 
-        auto& vr = registry.get<components::VolumeRenderable>(e);
-        if (vr.mesh == 0) continue;
+        auto& r = registry.get<components::Renderable>(e);
+        if (r.mesh == 0) continue;
 
         math::Vec3 box_min, box_max;
         computeWorldBounds(xform, domain.nx, domain.ny, domain.nz, box_min, box_max);
 
         graphics::render_techniques::VolumeDrawData data{
-            vol.texture_handle, vr.mesh, domain.nx, domain.ny, domain.nz,
+            vol.texture_handle, r.mesh, domain.nx, domain.ny, domain.nz,
             {{"u_model",   math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale)},
              {"u_view",    view},
              {"u_proj",    proj},

@@ -3,6 +3,7 @@
 #include "core/window.hpp"
 #include "graphics/graphics_context.hpp"
 #include "components/cube.hpp"
+#include <unordered_map>
 
 namespace exd {
 namespace systems {
@@ -14,6 +15,8 @@ class PrimitiveMeshSystem {
         graphics::Mesh createMesh(components::Cube cube);
     private:
         graphics::GraphicsContext& graphicsContext_;
+        // Cache last-known size per entity so we only regenerate on change
+        std::unordered_map<entities::Entity::id_type, float> cube_size_cache_;
 };
 
 } // namespace systems
