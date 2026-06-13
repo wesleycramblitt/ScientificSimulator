@@ -65,7 +65,7 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
 
     auto& solverCfg = registry.emplace<components::FluidX3DSolverConfig>(simEntity);
     solverCfg.extensions = FLUIDX3D_EXT_VOLUME_FORCE;
-    registry.emplace<components::FluidPhysics>(simEntity, 0.005f, 0.05f, 1, 0.0f, 0.0f, 0.0f, 0.0f);
+    registry.emplace<components::FluidPhysics>(simEntity, 0.005f, 0.1f, 1, 0.0f, 0.0f, 0.0f, 0.0f);
 
     auto& simInfo = registry.emplace<components::SimulationInfo>(simEntity);
     simInfo.total_steps = 5000;

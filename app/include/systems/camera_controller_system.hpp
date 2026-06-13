@@ -8,7 +8,6 @@ namespace exd {
 namespace systems {
 
 class CameraControllerSystem {
-
     public:
         void update(entities::Registry& registry, core::Window& window, float dt);
 

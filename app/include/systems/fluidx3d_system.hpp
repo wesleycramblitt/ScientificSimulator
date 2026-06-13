@@ -40,6 +40,9 @@ private:
 
     LBM*         lbm_ = nullptr;
 
+    // Track previous particle X to detect periodic-wrap (X boundaries are periodic)
+    std::vector<float> prev_particle_x_;
+
     // Cache last-known domain dimensions so the box mesh regenerates on edit
     struct { int nx = 0, ny = 0, nz = 0; } domain_cache_;
 };

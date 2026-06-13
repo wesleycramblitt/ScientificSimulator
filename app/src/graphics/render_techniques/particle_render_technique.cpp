@@ -63,13 +63,11 @@ void ParticleRenderTechnique::bind() {
 void ParticleRenderTechnique::draw(const ParticleDrawData& data) {
     if (!data.positions || data.count == 0) return;
 
-    uint32_t key = next_key_++;
-    auto& s = states_[key];
-    if (s.vao == 0 || s.capacity < data.count) {
-        if (s.vao) { GL_CALL(glDeleteVertexArrays(1, &s.vao)); GL_CALL(glDeleteBuffers(1, &s.vbo)); }
-        initGL(s, data.count);
+    if (state_.vao == 0 || state_.capacity < data.count) {
+        if (state_.vao) { GL_CALL(glDeleteVertexArrays(1, &state_.vao)); GL_CALL(glDeleteBuffers(1, &state_.vbo)); }
+        initGL(state_, data.count);
     }
-    upload(s, data.positions, data.colors, data.count);
+    upload(state_, data.positions, data.colors, data.count);
 
     for (const auto& [name, value] : data.uniforms) {
         GLint loc = glGetUniformLocation(program_, name.c_str());
@@ -86,7 +84,7 @@ void ParticleRenderTechnique::draw(const ParticleDrawData& data) {
         }, value);
     }
 
-    GL_CALL(glBindVertexArray(s.vao));
+    GL_CALL(glBindVertexArray(state_.vao));
     GL_CALL(glPointSize(2.0f));
     GL_CALL(glDrawArrays(GL_POINTS, 0, data.count));
     GL_CALL(glBindVertexArray(0));

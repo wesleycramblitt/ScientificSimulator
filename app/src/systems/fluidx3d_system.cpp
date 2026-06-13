@@ -22,6 +22,7 @@
 
 #include <cstdlib>
 #include <cstdio>
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <vector>
@@ -42,9 +43,11 @@ void FluidX3DSystem::createSolver(entities::Registry& registry,
     const uint nx = domain.nx, ny = domain.ny, nz = domain.nz;
     const float nu = phys.nu;
 
-    // Compute force for desired max velocity ~0.05 in +X direction
+    // Compute driving force.  A moderate force develops visible flow quickly
+    // without excessive compressibility.  The steady-state centerline velocity
+    // will settle at whatever the LBM Mach limit allows (typically 0.1–0.3 lu/ts).
     const float u_desired = -0.05f;
-    const float fx = u_desired * 2e-3f;  // smaller force for stable channel flow
+    const float fx = u_desired * 2e-3f;
     const uint particles_N = 100000u;
 
     lbm_ = new LBM(nx, ny, nz, nu, fx, 0.0f, 0.0f, particles_N);
@@ -213,23 +216,29 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
                 if (lbm_->particles) {
                     lbm_->particles->read_from_device();
                     ulong Np = lbm_->particles->length();
+                    const float lx = 0.5f * (float)nx;
+                    const float ly = 0.5f * (float)ny;
+                    const float lz = 0.5f * (float)nz;
+                    const float margin = 2.5f;
+                    const float inlet_x = lx - margin;
+                    const float y_min = -ly + margin, y_max = ly - margin;
+                    const float z_min = -lz + margin, z_max = lz - margin;
                     for (ulong i = 0; i < Np; ++i) {
-                        // Near +X inlet for -X flow, seeded in centered coordinates
                         float r01_y = (float)rand() / (float)RAND_MAX;
                         float r01_z = (float)rand() / (float)RAND_MAX;
-                        lbm_->particles->x[i] = 0.5f * (float)nx - 2.0f;
-                        lbm_->particles->y[i] = (r01_y * ((float)ny - 4.0f) + 2.0f) - 0.5f * (float)ny;
-                        lbm_->particles->z[i] = (r01_z * ((float)nz - 4.0f) + 2.0f) - 0.5f * (float)nz;
+                        lbm_->particles->x[i] = inlet_x;
+                        lbm_->particles->y[i] = y_min + r01_y * (y_max - y_min);
+                        lbm_->particles->z[i] = z_min + r01_z * (z_max - z_min);
                     }
+                    prev_particle_x_.assign(Np, inlet_x);
                     lbm_->particles->write_to_device();
                 }
             }
 
             lbm_->run(info.steps_per_frame, info.total_steps);
             info.current_step += info.steps_per_frame;
-            lbm_->integrate_particles(info.steps_per_frame, 1.0f);
 
-            // ── Read back particle positions and colour by velocity ──
+            // ── Read back, detect periodic wrap, respawn, colour by velocity ──
             entities::Entity particleEntity = findSimChild(simEntity.id, components::ParticleCloud{});
             if (lbm_->particles && registry.valid(particleEntity)) {
                 lbm_->particles->read_from_device();
@@ -243,7 +252,15 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
                 const float lx = 0.5f * (float)nx;
                 const float ly = 0.5f * (float)ny;
                 const float lz = 0.5f * (float)nz;
+                const float margin = 2.5f;
+                const float inlet_x = lx - margin;
+                const float y_min = -ly + margin, y_max = ly - margin;
+                const float z_min = -lz + margin, z_max = lz - margin;
                 const float max_vel = 0.03f;
+                bool any_respawned = false;
+
+                if (prev_particle_x_.size() != Np)
+                    prev_particle_x_.assign(Np, inlet_x);
 
                 auto velColor = [](float mag, float max) -> std::array<float,3> {
                     float t = std::min(mag / max, 1.0f);
@@ -261,6 +278,25 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
                     float py = lbm_->particles->y[i];
                     float pz = lbm_->particles->z[i];
 
+                    // X boundaries are periodic (flow is -X).  Detect the
+                    // discontinuity when a particle wraps from -X to +X.
+                    bool nonfinite = !std::isfinite(px) || !std::isfinite(py) || !std::isfinite(pz);
+                    bool wrapped   = (px - prev_particle_x_[i] > 0.5f * (float)nx);
+                    bool oob_yz    = (py < y_min || py > y_max || pz < z_min || pz > z_max);
+
+                    if (nonfinite || wrapped || oob_yz) {
+                        float r01_y = (float)rand() / (float)RAND_MAX;
+                        float r01_z = (float)rand() / (float)RAND_MAX;
+                        px = inlet_x;
+                        py = y_min + r01_y * (y_max - y_min);
+                        pz = z_min + r01_z * (z_max - z_min);
+                        lbm_->particles->x[i] = px;
+                        lbm_->particles->y[i] = py;
+                        lbm_->particles->z[i] = pz;
+                        any_respawned = true;
+                    }
+                    prev_particle_x_[i] = px;
+
                     pc.positions[i*3+0] = px;
                     pc.positions[i*3+1] = py;
                     pc.positions[i*3+2] = pz;
@@ -275,26 +311,35 @@ void FluidX3DSystem::update(entities::Registry& registry, core::Window& window, 
                     auto col = velColor(mag, max_vel);
                     pc.colors[i*3+0] = col[0];  pc.colors[i*3+1] = col[1];  pc.colors[i*3+2] = col[2];
                 }
+
+                if (any_respawned)
+                    lbm_->particles->write_to_device();
             }
 
-            // Upload velocity magnitude to volume texture (on the separate volume entity)
+            // Upload streamwise-velocity-deficit scalar to volume texture
             entities::Entity volumeEntity = findSimChild(simEntity.id, components::VolumeField{});
             if (registry.valid(volumeEntity)) {
                 auto& vf = registry.get<components::VolumeField>(volumeEntity);
                 lbm_->u.read_from_device();
+                lbm_->flags.read_from_device();
                 ulong N = lbm_->get_N();
-                std::vector<float> mag(N);
+                const float ref_speed = 0.05f;
+                std::vector<float> scalar(N);
                 for (ulong i = 0; i < N; i++) {
-                    float ux = lbm_->u.x[i], uy = lbm_->u.y[i], uz = lbm_->u.z[i];
-                    mag[i] = std::sqrt(ux*ux + uy*uy + uz*uz);
+                    if (lbm_->flags[i] & TYPE_S) {
+                        scalar[i] = 0.0f;
+                    } else {
+                        float streamwise = -lbm_->u.x[i];  // -X flow, so -ux is streamwise
+                        scalar[i] = std::clamp((ref_speed - streamwise) / ref_speed, 0.0f, 1.0f);
+                    }
                 }
 
                 if (!vf.interop_ready) {
-                    graphics::Texture3D tex(domain.nx, domain.ny, domain.nz, mag.data());
+                    graphics::Texture3D tex(domain.nx, domain.ny, domain.nz, scalar.data());
                     vf.texture_handle = graphicsContext_.texture_manager.uploadToGPU(tex);
                     vf.interop_ready = true;
                 } else {
-                    graphics::Texture3D tex(domain.nx, domain.ny, domain.nz, mag.data());
+                    graphics::Texture3D tex(domain.nx, domain.ny, domain.nz, scalar.data());
                     graphicsContext_.texture_manager.update(vf.texture_handle, tex);
                 }
             }

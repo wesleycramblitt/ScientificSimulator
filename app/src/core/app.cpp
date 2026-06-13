@@ -38,7 +38,7 @@ void App::Run() {
     isRunning_ = true;
 
     using clock = std::chrono::steady_clock;
-    const auto fps = 60;
+    const auto fps = 240;
     const auto target_frame = std::chrono::microseconds(1000000 / fps); // ~60 FPS cap
     auto last_frame = clock::now();
 

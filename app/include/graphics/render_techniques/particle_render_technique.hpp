@@ -30,8 +30,7 @@ private:
 
     graphics::GraphicsContext& ctx_;
     uint32_t program_ = 0;
-    std::unordered_map<uint32_t, GLState> states_;
-    uint32_t next_key_ = 0;
+    GLState state_;
 };
 
 } // namespace render_techniques

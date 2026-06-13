@@ -39,9 +39,15 @@ void VolumeRenderTechnique::draw(const VolumeDrawData& data) {
     ctx_.texture_manager.bind(data.texture_handle);
     GL_CALL(glUniform1i(glGetUniformLocation(program_, "u_volume"), 0));
 
-    // Grid dimensions (ivec3)
+    // Grid dimensions and absorption
     GL_CALL(glUniform3i(glGetUniformLocation(program_, "u_grid_dims"),
                         data.nx, data.ny, data.nz));
+    GL_CALL(glUniform1f(glGetUniformLocation(program_, "u_absorption"), 1.0f));
+
+    // Alpha blending (premultiplied), keep depth test, disable depth writes
+    GL_CALL(glEnable(GL_BLEND));
+    GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+    GL_CALL(glDepthMask(GL_FALSE));
 
     // Draw proxy geometry
     GL_CALL(glEnable(GL_CULL_FACE));
@@ -55,6 +61,8 @@ void VolumeRenderTechnique::draw(const VolumeDrawData& data) {
 }
 
 void VolumeRenderTechnique::unbind() {
+    GL_CALL(glDepthMask(GL_TRUE));
+    GL_CALL(glDisable(GL_BLEND));
     GL_CALL(glUseProgram(0));
 }
 
