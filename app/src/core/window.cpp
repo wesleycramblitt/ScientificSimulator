@@ -86,7 +86,11 @@ void Window::getEvents() {
 
     for (const auto& ev : event_buffer) {
           if (ev.type == SDL_EVENT_QUIT) should_close = true;
-          if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_ESCAPE) should_close = true;
+           if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_ESCAPE) {
+               // In FPS mode Esc quits; in UI mode it's handled by the gizmo system
+               if (input_mode_ == common::InputMode::FPS)
+                   should_close = true;
+           }
           if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_Z) {
               setInputMode(input_mode_ == common::InputMode::FPS ? common::InputMode::UI : common::InputMode::FPS);
           }

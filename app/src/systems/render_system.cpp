@@ -5,6 +5,7 @@
 #include "components/renderable.hpp"
 #include "components/cubemap.hpp"
 #include "components/disabled.hpp"
+#include "components/skew.hpp"
 #include "components/render_technique_mirror.hpp"
 #include "components/render_technique_cubemap.hpp"
 #include "components/render_technique_lambertian.hpp"
@@ -22,6 +23,18 @@
 
 namespace exd {
 namespace systems {
+
+// ---------------------------------------------------------------------------
+// Helper: build model matrix from an entity's Transform (+ optional Skew)
+// ---------------------------------------------------------------------------
+static math::Mat4 computeModelMatrix(const entities::Registry& registry, entities::Entity e) {
+    const auto& xform = registry.get<components::Transform>(e);
+    if (registry.has<components::Skew>(e)) {
+        const auto& sk = registry.get<components::Skew>(e);
+        return math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale, sk.shear);
+    }
+    return math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale);
+}
 
 // ── construction ──────────────────────────────────────────────────────────
 
@@ -116,7 +129,7 @@ void RenderSystem::renderOpaquePass(entities::Registry& registry,
         auto& xform = registry.get<components::Transform>(e);
         auto& r     = registry.get<components::Renderable>(e);
         if (r.mesh == 0) continue;
-        math::Mat4 model = math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale);
+        math::Mat4 model = computeModelMatrix(registry, e);
         lambertianTechnique_.draw(r.mesh, model);
     }
     lambertianTechnique_.unbind();
@@ -143,7 +156,7 @@ void RenderSystem::renderReflectivePass(entities::Registry& registry,
         auto& r     = registry.get<components::Renderable>(e);
         auto& xform = registry.get<components::Transform>(e);
         if (r.mesh == 0) continue;
-        math::Mat4 model = math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale);
+        math::Mat4 model = computeModelMatrix(registry, e);
         reflectiveTechnique_.draw(r.mesh, model);
     }
     reflectiveTechnique_.unbind();
@@ -163,20 +176,26 @@ void RenderSystem::renderParticlePass(entities::Registry& registry,
 
         // Get Transform from the domain box entity via SimulationReference
         auto simId = registry.get<components::SimulationReference>(e).simulation_entity_id;
+        entities::Entity domainEntity{};
         const components::Transform* xform = nullptr;
         for (auto db : registry.view<components::Transform, components::SimulationReference>()) {
             if (registry.get<components::SimulationReference>(db).simulation_entity_id == simId) {
                 xform = &registry.get<components::Transform>(db);
+                domainEntity = db;
                 break;
             }
         }
         if (!xform) continue;
 
+        math::Mat4 model = registry.valid(domainEntity)
+            ? computeModelMatrix(registry, domainEntity)
+            : math::Mat4::modelTRS(xform->position, xform->rotation, xform->scale);
+
         graphics::render_techniques::ParticleDrawData data{
             pc.positions.data(),
             pc.colors.empty() ? nullptr : pc.colors.data(),
             pc.particle_count,
-            {{"u_model", math::Mat4::modelTRS(xform->position, xform->rotation, xform->scale)},
+            {{"u_model", model},
              {"u_view", view}, {"u_proj", proj}}
         };
         particleTechnique_.draw(data);
@@ -223,7 +242,7 @@ void RenderSystem::renderVolumePass(entities::Registry& registry,
 
         graphics::render_techniques::VolumeDrawData data{
             vol.texture_handle, r.mesh, domain.nx, domain.ny, domain.nz,
-            {{"u_model",   math::Mat4::modelTRS(xform.position, xform.rotation, xform.scale)},
+            {{"u_model",   computeModelMatrix(registry, domainBoxEntity)},
              {"u_view",    view},
              {"u_proj",    proj},
              {"u_cam_pos", cam_pos},

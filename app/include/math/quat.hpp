@@ -62,10 +62,50 @@ struct Quat {
     };
     }
 
-     inline Quat norm() {
+      inline Quat norm() const {
         float len2 = x*x + y*y + z*z + w*w;
         float inv  = 1.0f / std::sqrt(len2);
         return Quat{w*inv,x*inv,y*inv,z*inv};
+    }
+
+    // Extract quaternion from a pure rotation matrix (column-major, upper-left 3x3).
+    // Assumes the matrix is orthonormal (no scale or shear).
+    static Quat fromRotationMatrix(const float* m) {
+        // m is column-major: m[col*4 + row]
+        const float r00 = m[0],  r01 = m[4],  r02 = m[8];
+        const float r10 = m[1],  r11 = m[5],  r12 = m[9];
+        const float r20 = m[2],  r21 = m[6],  r22 = m[10];
+
+        float w, x, y, z;
+        const float trace = r00 + r11 + r22;
+
+        if (trace > 0.0f) {
+            float s = std::sqrt(trace + 1.0f) * 2.0f;
+            w = 0.25f * s;
+            x = (r21 - r12) / s;
+            y = (r02 - r20) / s;
+            z = (r10 - r01) / s;
+        } else if (r00 > r11 && r00 > r22) {
+            float s = std::sqrt(1.0f + r00 - r11 - r22) * 2.0f;
+            w = (r21 - r12) / s;
+            x = 0.25f * s;
+            y = (r01 + r10) / s;
+            z = (r02 + r20) / s;
+        } else if (r11 > r22) {
+            float s = std::sqrt(1.0f + r11 - r00 - r22) * 2.0f;
+            w = (r02 - r20) / s;
+            x = (r01 + r10) / s;
+            y = 0.25f * s;
+            z = (r12 + r21) / s;
+        } else {
+            float s = std::sqrt(1.0f + r22 - r00 - r11) * 2.0f;
+            w = (r10 - r01) / s;
+            x = (r02 + r20) / s;
+            y = (r12 + r21) / s;
+            z = 0.25f * s;
+        }
+
+        return Quat{w, x, y, z};
     }
 
 

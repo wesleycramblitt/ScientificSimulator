@@ -1,4 +1,5 @@
 #include "systems/imgui_system.hpp"
+#include "systems/imguizmo_system.hpp"
 #include "core/window.hpp"
 
 #include "imgui.h"
@@ -21,6 +22,8 @@
 #include "components/grid.hpp"
 #include "components/disabled.hpp"
 #include "components/readonly.hpp"
+#include "components/selected.hpp"
+#include "components/skew.hpp"
 #include "components/simulation_status.hpp"
 #include "components/fluidx3d_config.hpp"
 #include "components/fluid_domain.hpp"
@@ -108,6 +111,12 @@ void ImGuiSystem::update(entities::Registry& registry, const core::Window& windo
     // --- Panels ---
     drawEntityList(registry);
     drawComponentDetails(registry);
+
+    // --- Gizmo rendering (must happen during ImGui frame, before Render) ---
+    if (gizmoSystem_) {
+        gizmoSystem_->renderGizmos(registry, window);
+    }
+
     drawViewportInfo(registry, window);
 
     // --- End frame and render ---
@@ -156,6 +165,12 @@ void ImGuiSystem::drawEntityList(entities::Registry& registry) {
         ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow;
         if (tags.empty()) node_flags |= ImGuiTreeNodeFlags_Leaf;
 
+        // Highlight selected entity
+        bool isSelected = registry.has<components::Selected>(e);
+        if (isSelected) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 0.8f, 1.0f, 1.0f));
+        }
+
         if (!entityEnabled)
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.35f, 0.35f, 0.35f, 1.0f));
 
@@ -165,6 +180,10 @@ void ImGuiSystem::drawEntityList(entities::Registry& registry) {
         if (!entityEnabled)
             ImGui::PopStyleColor();
 
+        if (isSelected) {
+            ImGui::PopStyleColor();
+        }
+
         ImGui::PopID();
 
         if (open) {
@@ -173,6 +192,14 @@ void ImGuiSystem::drawEntityList(entities::Registry& registry) {
                 if (ImGui::Selectable(tag, selected_tag_ == tag && selected_entity_ == e)) {
                     selected_entity_ = e;
                     selected_tag_    = tag;
+
+                    // Set Selected tag on this entity, remove from all others
+                    for (auto other : registry.view<components::Selected>()) {
+                        if (other != e) registry.remove<components::Selected>(other);
+                    }
+                    if (!registry.has<components::Selected>(e)) {
+                        registry.emplace<components::Selected>(e);
+                    }
                 }
                 ImGui::PopID();
             }
@@ -188,7 +215,7 @@ void ImGuiSystem::drawEntityList(entities::Registry& registry) {
 // Viewport info overlay (floating, transparent, pinned top-right)
 // -----------------------------------------------------------------------
 
-void ImGuiSystem::drawViewportInfo(const entities::Registry& registry, const core::Window& window) {
+void ImGuiSystem::drawViewportInfo(entities::Registry& registry, const core::Window& window) {
     // Semi-transparent dark background so text is readable over the 3D scene
     ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0, 0, 0, 120));
 
@@ -277,6 +304,83 @@ void ImGuiSystem::drawViewportInfo(const entities::Registry& registry, const cor
         break;
     }
 
+    // -- Gizmo mode (only shown when a gizmo system is active) --
+    if (gizmoSystem_) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("|");
+        ImGui::SameLine();
+
+        int op = gizmoSystem_->currentOperation();
+        int md = gizmoSystem_->currentMode();
+        bool skewMode = gizmoSystem_->isSkewMode();
+
+        // Clickable operation buttons
+        auto opButton = [&](const char* label, int targetOp) {
+            bool active = (!skewMode && op == targetOp);
+            if (active) {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.5f, 0.8f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_Text,  ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            }
+            if (ImGui::SmallButton(label)) {
+                gizmoSystem_->setOperation(targetOp);
+            }
+            if (active) {
+                ImGui::PopStyleColor(2);
+            }
+        };
+
+        opButton("T", 7);       // TRANSLATE
+        ImGui::SameLine(0, 2);
+        opButton("R", 120);     // ROTATE
+        ImGui::SameLine(0, 2);
+        opButton("S", 1792);    // SCALE
+        ImGui::SameLine(0, 2);
+
+        // Skew button
+        {
+            if (skewMode) {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.3f, 0.8f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_Text,  ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            }
+            if (ImGui::SmallButton("K")) {
+                gizmoSystem_->setSkewMode(registry);
+            }
+            if (skewMode) {
+                ImGui::PopStyleColor(2);
+            }
+        }
+        ImGui::SameLine();
+
+        // Mode toggle button
+        const char* mdStr = (md == 0) ? "Local" : "World";
+        if (ImGui::SmallButton(mdStr)) {
+            gizmoSystem_->toggleMode();
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("[Tab]");
+
+        // Show selection count + deselect button
+        {
+            int selCount = 0;
+            for (auto _ : registry.view<components::Selected>()) { ++selCount; }
+            if (selCount > 0) {
+                ImGui::SameLine();
+                ImGui::TextDisabled("|");
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.3f, 0.8f, 1.0f, 1.0f), "%d selected", selCount);
+                ImGui::SameLine();
+                if (ImGui::SmallButton("X")) {
+                    for (auto s : registry.view<components::Selected>()) {
+                        registry.remove<components::Selected>(s);
+                    }
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Deselect [Backspace]");
+                }
+            }
+        }
+    }
+
     ImGui::End();
     ImGui::PopStyleVar(4);
     ImGui::PopStyleColor(1);
@@ -307,7 +411,7 @@ void ImGuiSystem::drawComponentDetails(entities::Registry& registry) {
     if (strcmp(tag, "Transform") == 0 && registry.has<components::Transform>(e)) {
         auto& t = registry.get<components::Transform>(e);
         ImGui::DragFloat3("Position", &t.position.x, 0.1f);
-        ImGui::DragFloat4("Rotation", &t.rotation.x, 0.01f);
+        ImGui::DragFloat4("Rotation", &t.rotation.w, 0.01f);
         ImGui::DragFloat3("Scale",    &t.scale.x, 0.01f);
     }
     // ── Camera ──
@@ -379,6 +483,17 @@ void ImGuiSystem::drawComponentDetails(entities::Registry& registry) {
         ImGui::DragFloat("Spacing", &g.spacing, 0.1f, 0.1f, 1000.0f);
         ImGui::DragFloat3("Color", &g.color.x, 0.01f, 0.0f, 1.0f);
     }
+    // ── Skew ──
+    else if (strcmp(tag, "Skew") == 0 && registry.has<components::Skew>(e)) {
+        auto& sk = registry.get<components::Skew>(e);
+        ImGui::Text("Shear factors (T * R * K * S):");
+        ImGui::DragFloat("XY shear", &sk.shear.x, 0.01f, -5.0f, 5.0f, "%.3f");
+        ImGui::DragFloat("XZ shear", &sk.shear.y, 0.01f, -5.0f, 5.0f, "%.3f");
+        ImGui::DragFloat("YZ shear", &sk.shear.z, 0.01f, -5.0f, 5.0f, "%.3f");
+        if (ImGui::Button("Reset Skew")) {
+            sk.shear = math::Vec3{0.0f, 0.0f, 0.0f};
+        }
+    }
     // ── CubeMap ──
     else if (strcmp(tag, "CubeMap") == 0 && registry.has<components::CubeMap>(e)) {
         auto& cm = registry.get<components::CubeMap>(e);
@@ -418,12 +533,15 @@ void ImGuiSystem::drawComponentDetails(entities::Registry& registry) {
     // ── SimulationInfo ──
     else if (strcmp(tag, "SimulationInfo") == 0 && registry.has<components::SimulationInfo>(e)) {
         auto& s = registry.get<components::SimulationInfo>(e);
-        const char* status_str = s.status == components::SimulationStatus::Running ? "Running"
-                               : s.status == components::SimulationStatus::Stopped ? "Stopped" : "Error";
+        const char* status_str = s.status == components::SimulationStatus::Running  ? "Running"
+                               : s.status == components::SimulationStatus::Stopped   ? "Stopped"
+                               : s.status == components::SimulationStatus::Completed ? "Completed"
+                               : "Error";
         ImGui::Text("Status:      %s", status_str);
         ImGui::Text("Step:        %u / %u", s.current_step, s.total_steps);
+        ImGui::Text("Target:      300 steps/s (time-synced)");
         int spf = (int)s.steps_per_frame;
-        if (ImGui::DragInt("S/frame", &spf, 1.0f, 1, 1000))
+        if (ImGui::DragInt("Max s/frame", &spf, 1.0f, 1, 1000))
             s.steps_per_frame = (uint32_t)spf;
     }
     // ── SimulationReference ──
@@ -436,6 +554,9 @@ void ImGuiSystem::drawComponentDetails(entities::Registry& registry) {
     else if (strcmp(tag, "ParticleCloud") == 0 && registry.has<components::ParticleCloud>(e)) {
         auto& pc = registry.get<components::ParticleCloud>(e);
         ImGui::Text("Particles:  %d / %d", pc.particle_count, pc.max_particles);
+        int mp = pc.max_particles;
+        if (ImGui::DragInt("Max Particles", &mp, 1000.0f, 0, 5000000))
+            pc.max_particles = mp;
     }
     // ── VolumeField ──
     else if (strcmp(tag, "VolumeField") == 0 && registry.has<components::VolumeField>(e)) {
@@ -477,6 +598,8 @@ std::vector<const char*> ImGuiSystem::componentTags(const entities::Registry& re
     if (registry.try_get<components::Cylinder>(e))          tags.push_back("Cylinder");
     if (registry.try_get<components::Plane>(e))             tags.push_back("Plane");
     if (registry.try_get<components::Grid>(e))              tags.push_back("Grid");
+    if (registry.try_get<components::Selected>(e))           tags.push_back("Selected");
+    if (registry.try_get<components::Skew>(e))               tags.push_back("Skew");
     if (registry.try_get<components::SimulationDomain>(e))       tags.push_back("SimulationDomain");
     if (registry.try_get<components::FluidPhysics>(e))           tags.push_back("FluidPhysics");
     if (registry.try_get<components::FluidX3DSolverConfig>(e))   tags.push_back("FluidX3DSolverConfig");

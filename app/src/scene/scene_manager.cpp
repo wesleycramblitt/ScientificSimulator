@@ -65,17 +65,22 @@ Scene SceneManager::loadScene(const std::string& scene_name) {
 
     auto& solverCfg = registry.emplace<components::FluidX3DSolverConfig>(simEntity);
     solverCfg.extensions = FLUIDX3D_EXT_VOLUME_FORCE;
-    registry.emplace<components::FluidPhysics>(simEntity, 0.005f, 0.1f, 1, 0.0f, 0.0f, 0.0f, 0.0f);
+    registry.emplace<components::FluidPhysics>(simEntity,
+        0.02f,   // nu — viscosity (higher = more stable, tau=3*nu+0.5=0.56)
+        0.15f,   // streamwise_velocity — target flow speed in lattice units
+        0,       // streamwise_axis — 0=X (flow in -X direction)
+        0.0f,    // fx — volume force computed from duct dimensions at solver creation
+        0.0f, 0.0f, 0.0f);
 
     auto& simInfo = registry.emplace<components::SimulationInfo>(simEntity);
-    simInfo.total_steps = 5000;
-    simInfo.steps_per_frame = 10;
+    simInfo.total_steps = 1000000;
+    simInfo.steps_per_frame = 10;  // reasonable default; adjust in UI (1-1000)
 
     // ── Domain box (defines domain dimensions, world position, and wireframe) ──
     entities::Entity domainBoxEntity = registry.create("WindTunnel Box");
-    registry.emplace<components::SimulationDomain>(domainBoxEntity, 344, 128, 128);
+    registry.emplace<components::SimulationDomain>(domainBoxEntity, 250, 80, 128);
     registry.emplace<components::Transform>(domainBoxEntity,
-        math::Vec3(0, 80, 0), math::Quat(1,0,0,0), math::Vec3(1,1,1));
+        math::Vec3(-20, 80, 0), math::Quat(1,0,0,0), math::Vec3(1,1,1));
     registry.emplace<components::Render_Technique_Lambertian>(domainBoxEntity);
     registry.emplace<components::SimulationReference>(domainBoxEntity, simEntity.id);
 

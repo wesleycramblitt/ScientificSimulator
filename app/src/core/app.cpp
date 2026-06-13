@@ -2,7 +2,6 @@
 #include "core/window.hpp"
 #include <iostream>
 #include <chrono>
-#include <thread>
 
 namespace exd {
 namespace core {
@@ -14,11 +13,13 @@ App::App() : isRunning_(false),
     renderSystem_(graphicsContext_),
     gridSystem_(graphicsContext_),
     fluidX3DSystem_(graphicsContext_),
-    gizmoSystem_(graphicsContext_)
+    imguizmoSystem_(graphicsContext_)
 {
     if (!imguiSystem_.init(window_)) {
         std::cerr << "Failed to initialize ImGuiSystem\n";
     }
+    // Wire the gizmo system into ImGuiSystem so it renders during the ImGui frame
+    imguiSystem_.setGizmoSystem(&imguizmoSystem_);
 }
 
 App::~App() {
@@ -38,8 +39,6 @@ void App::Run() {
     isRunning_ = true;
 
     using clock = std::chrono::steady_clock;
-    const auto fps = 240;
-    const auto target_frame = std::chrono::microseconds(1000000 / fps); // ~60 FPS cap
     auto last_frame = clock::now();
 
     while (!window_.should_close) {
@@ -56,21 +55,23 @@ void App::Run() {
 
         cameraControllerSystem_.update(scene.registry, window_, dt);
 
-        renderSystem_.update(scene.registry, window_, dt);
-
-        gizmoSystem_.update(scene.registry, window_);
-
+        // ── Simulation (runs before render so the camera stays responsive
+        //     and render always shows the latest solver state) ──
         fluidX3DSystem_.update(scene.registry, window_, dt);
+
+        // ── Render ──
+        renderSystem_.update(scene.registry, window_, dt);
 
         imguiSystem_.update(scene.registry, window_);
 
+        // ImGuizmo keyboard shortcuts (W/E/R for operation, X for mode)
+        // Called after ImGui so we can check ImGui::GetIO().WantCaptureKeyboard
+        imguizmoSystem_.update(scene.registry, window_);
+
         window_.swapBuffers();
 
-        // FPS throttle: sleep if frame finished early
-        auto elapsed = clock::now() - frame_start;
-        if (elapsed < target_frame) {
-            std::this_thread::sleep_for(target_frame - elapsed);
-        }
+        // No manual FPS cap — vsync / swap interval controls frame pacing.
+        // If simulation takes too long, reduce steps_per_frame in the UI.
     }
 }
 

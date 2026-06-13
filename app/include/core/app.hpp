@@ -9,7 +9,7 @@
 #include "systems/mesh_asset_system.hpp"
 #include "systems/grid_system.hpp"
 #include "systems/imgui_system.hpp"
-#include "systems/gizmo_system.hpp"
+#include "systems/imguizmo_system.hpp"
 #include "systems/fluidx3d_system.hpp"
 
 namespace exd {
@@ -36,7 +36,7 @@ class App {
         systems::MeshAssetSystem meshAssetSystem_;
         systems::GridSystem gridSystem_;
         systems::ImGuiSystem imguiSystem_;
-        systems::GizmoSystem gizmoSystem_;
+        systems::ImGuizmoSystem imguizmoSystem_;
         systems::FluidX3DSystem fluidX3DSystem_;
 };
 

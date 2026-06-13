@@ -43,6 +43,12 @@ void main() {
     float t = max(t_entry, 0.0);
     vec4 accum = vec4(0.0);
 
+    // Jitter first sample to break up uniform-opacity banding
+    float noise = fract(
+        sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))
+        * 43758.5453);
+    t += noise * step_size;
+
     for (int i = 0; i < 2048 && t <= t_exit; i++) {
         vec3 pos      = u_cam_pos + ray_dir * t;
         vec3 texcoord = (pos - u_box_min) / box_size;

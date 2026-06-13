@@ -38,5 +38,10 @@ const MeshGPU* MeshManager::bind(const uint32_t mesh_handle) {
     return meshGPU;
 }
 
+const Mesh* MeshManager::getMesh(const uint32_t handle) const {
+    auto it = mesh_map_.find(handle);
+    return (it != mesh_map_.end()) ? &it->second : nullptr;
+}
+
 } // namespace graphics
 } // namespace exd

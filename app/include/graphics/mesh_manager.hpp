@@ -13,6 +13,9 @@ public:
     const uint32_t load(uint32_t asset_handle);
     const MeshGPU* bind(const uint32_t mesh);
 
+    /// Retrieve the CPU-side mesh data for raycasting / picking.
+    const Mesh* getMesh(const uint32_t handle) const;
+
 private:
     std::unordered_map<uint32_t, Mesh> mesh_map_;
     std::unordered_map<uint32_t, MeshGPU> meshgpu_map_;

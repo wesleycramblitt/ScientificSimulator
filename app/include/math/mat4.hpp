@@ -106,6 +106,78 @@ struct Mat4 {
 
         return M;
     }
+
+    // Build model matrix with skew: T * R * K * S
+    // where K is the shear matrix built from Vec3 skew factors:
+    //   skew.x = XY shear, skew.y = XZ shear, skew.z = YZ shear
+    static Mat4 modelTRS(const Vec3& p, Quat q, const Vec3& s, const Vec3& skew) {
+        q = q.norm();
+
+        const float x = q.x, y = q.y, z = q.z, w = q.w;
+
+        const float xx = x*x, yy = y*y, zz = z*z;
+        const float xy = x*y, xz = x*z, yz = y*z;
+        const float wx = w*x, wy = w*y, wz = w*z;
+
+        const float r00 = 1.0f - 2.0f*(yy + zz);
+        const float r01 = 2.0f*(xy - wz);
+        const float r02 = 2.0f*(xz + wy);
+
+        const float r10 = 2.0f*(xy + wz);
+        const float r11 = 1.0f - 2.0f*(xx + zz);
+        const float r12 = 2.0f*(yz - wx);
+
+        const float r20 = 2.0f*(xz - wy);
+        const float r21 = 2.0f*(yz + wx);
+        const float r22 = 1.0f - 2.0f*(xx + yy);
+
+        // Shear factors
+        const float kxy = skew.x;  // shear X along Y
+        const float kxz = skew.y;  // shear X along Z
+        const float kyz = skew.z;  // shear Y along Z
+
+        // Compute R * K first, then apply scale: (R*K) * S
+        // Column 0 of R*K:
+        //   r00*1 + r01*0 + r02*0 = r00
+        //   r10*1 + r11*0 + r12*0 = r10
+        //   r20*1 + r21*0 + r22*0 = r20
+        // Column 1 of R*K:
+        //   r00*kxy + r01*1 + r02*0
+        //   r10*kxy + r11*1 + r12*0
+        //   r20*kxy + r21*1 + r22*0
+        // Column 2 of R*K:
+        //   r00*kxz + r01*kyz + r02*1
+        //   r10*kxz + r11*kyz + r12*1
+        //   r20*kxz + r21*kyz + r22*1
+
+        Mat4 M{};
+
+        // Column 0 = (R*K).col0 * sx
+        M.m[0] = r00 * s.x;
+        M.m[1] = r10 * s.x;
+        M.m[2] = r20 * s.x;
+        M.m[3] = 0.0f;
+
+        // Column 1 = (R*K).col1 * sy
+        M.m[4] = (r00 * kxy + r01) * s.y;
+        M.m[5] = (r10 * kxy + r11) * s.y;
+        M.m[6] = (r20 * kxy + r21) * s.y;
+        M.m[7] = 0.0f;
+
+        // Column 2 = (R*K).col2 * sz
+        M.m[8]  = (r00 * kxz + r01 * kyz + r02) * s.z;
+        M.m[9]  = (r10 * kxz + r11 * kyz + r12) * s.z;
+        M.m[10] = (r20 * kxz + r21 * kyz + r22) * s.z;
+        M.m[11] = 0.0f;
+
+        // Column 3 = translation
+        M.m[12] = p.x;
+        M.m[13] = p.y;
+        M.m[14] = p.z;
+        M.m[15] = 1.0f;
+
+        return M;
+    }
 };
 
 } // namespace math

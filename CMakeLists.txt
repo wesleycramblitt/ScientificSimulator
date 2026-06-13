@@ -44,6 +44,7 @@ FetchContent_Declare(
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_ZLIB OFF CACHE BOOL "" FORCE)
 
 # You can also disable some importers/exporters if you want later.
 
@@ -56,6 +57,9 @@ add_subdirectory(external/fluidx3d)
 add_subdirectory(external/imgui)
 target_include_directories(imgui PUBLIC external/glad/include)
 target_link_libraries(imgui PUBLIC SDL3::SDL3 OpenGL::GL)
+
+# ImGuizmo — transform gizmos for Dear ImGui
+add_subdirectory(external/imguizmo)
 
 add_subdirectory(app/src/components)
 add_subdirectory(app/src/core)
@@ -118,8 +122,8 @@ target_link_libraries(ScientificSimulator PRIVATE assimp::assimp)
 target_link_libraries(ScientificSimulator PRIVATE fluidx3d)
 target_link_libraries(ScientificSimulator PRIVATE OpenCL::OpenCL)
 
-# Dear ImGui
-target_link_libraries(ScientificSimulator PRIVATE imgui)
+# Dear ImGui + ImGuizmo
+target_link_libraries(ScientificSimulator PRIVATE imgui imguizmo)
 
 target_compile_options(ScientificSimulator PRIVATE -fvisibility-inlines-hidden)
 
